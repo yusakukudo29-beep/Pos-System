@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kelola Kategori - POS SaaS</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .action-btn {
+            background: none;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            padding: 6px 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--surface);
+        }
+        .action-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke-width: 2;
+        }
+        .btn-edit { color: var(--primary); }
+        .btn-edit:hover { background-color: var(--border); border-color: var(--primary); }
+        
+        .btn-delete { color: #ef4444; }
+        .btn-delete:hover { background-color: #fee2e2; border-color: #ef4444; }
+        
+        /* Tombol Hapus Disabled */
+        .btn-delete:disabled, .action-btn:disabled {
+            color: var(--text-muted);
+            border-color: var(--border);
+            background-color: var(--bg-main);
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        .btn-delete:disabled:hover {
+            background-color: var(--bg-main);
+            border-color: var(--border);
+        }
+
+        /* Toast Notification Styling */
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            background: var(--surface);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 250px;
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+        }
+        .toast.success { border-left: 4px solid #10b981; }
+        .toast.error { border-left: 4px solid #ef4444; }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; transform: translateY(10px); }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <header>
+            <h1>Kelola Kategori Produk</h1>
+        </header>
+        <div class="content-body">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h2>Daftar Kategori</h2>
+                    <button class="btn" id="btn-tambah-kategori" onclick="bukaModalTambah()" style="display: none;">+ Tambah Kategori</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nama Kategori</th>
+                            <th style="text-align: center; width: 120px;" id="th-aksi">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabel-kategori">
+                        <tr><td colspan="2" style="text-align: center; color: var(--text-muted);">Memuat data kategori...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container"></div>
+
+    <!-- Modal Form (Tambah/Edit Kategori) -->
+    <div id="modal-kategori" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000;">
+        <div class="card" style="width: 100%; max-width: 400px; background: var(--surface);">
+            <h3 id="modal-title" style="margin-bottom: 16px;">Tambah Kategori</h3>
+            <input type="hidden" id="edit-id">
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.85rem; margin-bottom: 6px; color: var(--text-muted);">Nama Kategori</label>
+                <input type="text" id="input-nama" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-main); color: var(--text-main);" placeholder="Contoh: Minuman, Makanan">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button class="btn" style="background: var(--text-muted);" onclick="tutupModal()">Batal</button>
+                <button class="btn" onclick="simpanKategori()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Konfirmasi Hapus (Custom Pop-up) -->
+    <div id="modal-konfirmasi" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000;">
+        <div class="card" style="width: 100%; max-width: 380px; background: var(--surface); text-align: center; padding: 24px;">
+            <div style="font-size: 2.5rem; margin-bottom: 12px;">⚠️</div>
+            <h3 style="margin-bottom: 8px;">Konfirmasi Hapus</h3>
+            <p id="konfirmasi-pesan" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">Apakah Anda yakin ingin menghapus kategori ini?</p>
+            <input type="hidden" id="delete-id">
+            <div style="display: flex; justify-content: center; gap: 10px;">
+                <button class="btn" style="background: var(--text-muted); flex: 1;" onclick="tutupModalHapus()">Batal</button>
+                <button class="btn" style="background: #ef4444; flex: 1;" onclick="eksekusiHapus()">Ya, Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { supabase, getActiveStoreId, checkPermission, renderLayout } from './App.js';
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3000);
+        }
+
+        async function loadKategori() {
+            const tbody = document.getElementById('tabel-kategori');
+            const storeId = await getActiveStoreId();
+
+            // Cek hak akses berdasarkan User Role
+            const canEdit = await checkPermission('edit_kategori');
+            const canDelete = await checkPermission('delete_kategori');
+
+            // Atur visibilitas tombol Tambah Kategori
+            const btnTambah = document.getElementById('btn-tambah-kategori');
+            if (btnTambah) {
+                btnTambah.style.display = canEdit ? 'inline-block' : 'none';
+            }
+
+            // 1. Ambil data kategori
+            const { data: kategoriList, error } = await supabase
+                .from('categories')
+                .select('*')
+                .eq('store_id', storeId)
+                .order('nama_kategori', { ascending: true });
+
+            if (error) {
+                tbody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: red;">Gagal memuat: ${error.message}</td></tr>`;
+                return;
+            }
+
+            if (!kategoriList || kategoriList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: var(--text-muted);">Belum ada kategori.</td></tr>`;
+                return;
+            }
+
+            // 2. Ambil semua produk di toko ini untuk memeriksa relasi penggunaan kategori
+            const { data: produkList } = await supabase
+                .from('products')
+                .select('kategori_id')
+                .eq('store_id', storeId);
+
+            const usageCountMap = {};
+            if (produkList) {
+                produkList.forEach(p => {
+                    if (p.kategori_id) {
+                        usageCountMap[p.kategori_id] = (usageCountMap[p.kategori_id] || 0) + 1;
+                    }
+                });
+            }
+
+            tbody.innerHTML = '';
+            kategoriList.forEach(item => {
+                const jumlahProduk = usageCountMap[item.id] || 0;
+                const isUsed = jumlahProduk > 0;
+
+                // Render tombol edit bersyarat berdasarkan izin role
+                const editBtnHtml = canEdit 
+                    ? `<button class="action-btn btn-edit" title="Edit Kategori" onclick="bukaModalEdit('${item.id}', '${item.nama_kategori}')">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.862 4.487zm0 0L19.5 7.125" />
+                            </svg>
+                       </button>`
+                    : '';
+
+                // Atur atribut disabled jika kategori terpakai atau user tidak punya hak akses delete
+                let deleteBtnHtml = '';
+                if (canDelete) {
+                    const deleteDisabledAttr = isUsed 
+                        ? `disabled title="Tidak dapat dihapus karena masih digunakan oleh ${jumlahProduk} produk"` 
+                        : `title="Hapus Kategori" onclick="bukaModalHapus('${item.id}', '${item.nama_kategori}')"`;
+                    
+                    deleteBtnHtml = `
+                        <button class="action-btn btn-delete" ${deleteDisabledAttr}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                            </svg>
+                        </button>`;
+                }
+
+                const actionCell = (canEdit || canDelete) 
+                    ? `<td style="text-align: center;"><div style="display: inline-flex; gap: 6px;">${editBtnHtml}${deleteBtnHtml}</div></td>`
+                    : `<td style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">-</td>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <strong>${item.nama_kategori}</strong>
+                            ${isUsed ? `<br><small style="color: var(--text-muted); font-size: 0.75rem;">Terpakai oleh ${jumlahProduk} produk</small>` : ''}
+                        </td>
+                        ${actionCell}
+                    </tr>
+                `;
+            });
+        }
+
+        window.bukaModalTambah = function() {
+            document.getElementById('modal-title').innerText = 'Tambah Kategori';
+            document.getElementById('edit-id').value = '';
+            document.getElementById('input-nama').value = '';
+            document.getElementById('modal-kategori').style.display = 'flex';
+        }
+
+        window.bukaModalEdit = function(id, nama) {
+            document.getElementById('modal-title').innerText = 'Edit Kategori';
+            document.getElementById('edit-id').value = id;
+            document.getElementById('input-nama').value = nama;
+            document.getElementById('modal-kategori').style.display = 'flex';
+        }
+
+        window.tutupModal = function() {
+            document.getElementById('modal-kategori').style.display = 'none';
+        }
+
+        window.bukaModalHapus = function(id, nama) {
+            document.getElementById('delete-id').value = id;
+            document.getElementById('konfirmasi-pesan').innerHTML = `Apakah Anda yakin ingin menghapus kategori <strong>"${nama}"</strong>?`;
+            document.getElementById('modal-konfirmasi').style.display = 'flex';
+        }
+
+        window.tutupModalHapus = function() {
+            document.getElementById('modal-konfirmasi').style.display = 'none';
+        }
+
+        window.simpanKategori = async function() {
+            const id = document.getElementById('edit-id').value;
+            const namaBaru = document.getElementById('input-nama').value.trim();
+
+            if (!namaBaru) {
+                showToast('Nama kategori tidak boleh kosong!', 'error');
+                return;
+            }
+
+            const storeId = await getActiveStoreId();
+
+            if (id) {
+                const { error } = await supabase.from('categories').update({ nama_kategori: namaBaru }).eq('id', id);
+                if (error) {
+                    showToast('Gagal mengupdate: ' + error.message, 'error');
+                } else {
+                    showToast('Kategori berhasil diperbarui!');
+                    tutupModal();
+                    loadKategori();
+                }
+            } else {
+                const { error } = await supabase.from('categories').insert([{ nama_kategori: namaBaru, store_id: storeId }]);
+                if (error) {
+                    showToast('Gagal menambah: ' + error.message, 'error');
+                } else {
+                    showToast('Kategori berhasil ditambahkan!');
+                    tutupModal();
+                    loadKategori();
+                }
+            }
+        }
+
+        window.eksekusiHapus = async function() {
+            const id = document.getElementById('delete-id').value;
+            tutupModalHapus();
+
+            const { data: produkTerkait, error: cekError } = await supabase.from('products').select('sku_id').eq('kategori_id', id);
+
+            if (cekError) {
+                showToast('Gagal memeriksa relasi data: ' + cekError.message, 'error');
+                return;
+            }
+
+            if (produkTerkait && produkTerkait.length > 0) {
+                showToast(`Gagal! Kategori masih dipakai oleh ${produkTerkait.length} produk.`, 'error');
+                return;
+            }
+
+            const { error } = await supabase.from('categories').delete().eq('id', id);
+
+            if (error) {
+                showToast('Gagal menghapus: ' + error.message, 'error');
+            } else {
+                showToast('Kategori berhasil dihapus.');
+                loadKategori();
+            }
+        }
+
+        loadKategori();
+    </script>
+</body>
+</html>

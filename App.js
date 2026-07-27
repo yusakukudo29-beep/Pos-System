@@ -1,0 +1,344 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://thuamzdhqemgebrixmav.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_YAoVXxNBPdP7UT-AtHR_4Q_z9G2InlU';
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function getUserThemeKey() {
+    const activeUser = JSON.parse(localStorage.getItem('active_user') || '{}');
+    const userEmail = activeUser.email || 'default_user';
+    return `pos_theme_${userEmail}`;
+}
+
+// ==========================================
+// INISIALISASI UTAMA
+// ==========================================
+function initApp() {
+    const currentPath = window.location.pathname.split("/").pop() || "login.html";
+    const isLoggedIn = localStorage.getItem("is_logged_in") === "true";
+    const publicPages = ["login.html", "register.html"];
+
+    if (!isLoggedIn && !publicPages.includes(currentPath)) {
+        window.location.href = "login.html";
+        return;
+    }
+
+    const savedTheme = localStorage.getItem(getUserThemeKey()) || "light";
+    document.documentElement.setAttribute("data-theme", savedTheme);
+
+    if (!publicPages.includes(currentPath)) {
+        renderLayout(); // Render struktur dasar dulu
+        syncUserData(); // Tarik "nama_lengkap" dari tabel user_profile di Supabase
+
+        const navMapping = {
+            "dashboard.html": "nav-dashboard",
+            "penjualan.html": "nav-penjualan",
+            "barang.html": "nav-barang",
+            "kategori.html": "nav-kategori",
+            "report.html": "nav-report",
+            "users.html": "nav-users",
+            "userrole.html": "nav-userrole",
+            "store.html": "nav-store",
+            "admin_stores.html": "nav-admin-stores"
+        };
+
+        if (navMapping[currentPath]) {
+            const activeLink = document.getElementById(navMapping[currentPath]);
+            if (activeLink) activeLink.classList.add("active");
+        }
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener("DOMContentLoaded", initApp);
+} else {
+    initApp();
+}
+
+// ==========================================
+// FUNGSI TARIK DATA "nama_lengkap" DARI TABEL "user_profile"
+// ==========================================
+// ==========================================
+// FUNGSI TARIK DATA "nama_lengkap" DARI TABEL "user_profile"
+// ==========================================
+// ==========================================
+// FUNGSI TARIK DATA "nama_lengkap" DARI TABEL "user_profile"
+// ==========================================
+async function syncUserData() {
+    const userEmail = localStorage.getItem("user_email") || localStorage.getItem("email");
+    
+    const updateBadgeText = (text) => {
+        const nameElements = document.querySelectorAll('.user-badge-name');
+        nameElements.forEach(el => { el.innerText = text; });
+    };
+
+    if (!userEmail) {
+        updateBadgeText("Pengguna");
+        return;
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('users_profile')
+            .select('nama_lengkap')
+            .eq('email', userEmail)
+            .single();
+
+        // JIKA ADA ERROR, MUNCULKAN POP-UP DI LAYAR TABLET
+        if (error) {
+            alert("Pesan dari Supabase:\n" + error.message);
+            const fallbackName = userEmail.split('@')[0];
+            updateBadgeText(fallbackName);
+            return;
+        }
+
+        if (data && data.nama_lengkap) {
+            localStorage.setItem('nama_lengkap', data.nama_lengkap);
+            updateBadgeText(data.nama_lengkap);
+        } else {
+            // POP-UP JIKA DATANYA MEMANG KOSONG
+            alert("Tabel berhasil diakses, tapi kolom nama_lengkap Anda di database masih kosong (NULL).");
+            updateBadgeText("Pengguna");
+        }
+    } catch (e) {
+        alert("Terjadi kesalahan koneksi:\n" + e.message);
+        updateBadgeText("Pengguna");
+    }
+}
+
+// ==========================================
+// FUNGSI RENDER LAYOUT
+// ==========================================
+export function renderLayout() {
+    // 1. RENDER SIDEBAR
+    if (!document.getElementById("app-sidebar")) {
+        const userRole = localStorage.getItem("user_role") || "";
+        const adminStoresMenu = userRole.includes('super_admin') 
+            ? `<li><a href="admin_stores.html" id="nav-admin-stores">🏢 Kelola Klien SaaS</a></li>` 
+            : '';
+
+        const sidebarHTML = `
+        <div id="sidebar-backdrop" onclick="toggleSidebar()"></div>
+        <aside id="app-sidebar">
+            <div class="brand">
+                <span>🚀 KasirPOS SaaS</span>
+                <span style="cursor: pointer; font-size: 1rem; padding: 4px;" onclick="toggleSidebar()">✕</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="dashboard.html" id="nav-dashboard">📊 Dashboard</a></li>
+                <li><a href="penjualan.html" id="nav-penjualan">🛒 Kasir / Penjualan</a></li>
+                <li><a href="barang.html" id="nav-barang">📦 Data Barang (SKU)</a></li>
+                <li><a href="kategori.html" id="nav-kategori">🏷️ Kategori</a></li>
+                <li><a href="report.html" id="nav-report">📈 Laporan Penjualan</a></li>
+                <li><a href="users.html" id="nav-users">👥 Manajemen User</a></li>
+                <li><a href="userrole.html" id="nav-userrole">🔐 Role & Hak Akses</a></li>
+                <li><a href="store.html" id="nav-store">🏢 Pengaturan Toko</a></li>
+                ${adminStoresMenu}
+                <li style="margin-top: 30px;"><a href="#" onclick="logoutUser()" style="color: #ef4444;">🚪 Keluar (Logout)</a></li>
+            </ul>
+        </aside>
+        `;
+        document.body.insertAdjacentHTML("afterbegin", sidebarHTML);
+
+        let touchStartX = 0;
+        let touchEndX = 0;
+        window.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, false);
+        window.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            const sidebar = document.getElementById('app-sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            if (!sidebar || !backdrop) return;
+            if (touchEndX - touchStartX > 70 && touchStartX < 50) {
+                sidebar.classList.add('open'); backdrop.classList.add('open');
+            }
+            if (touchStartX - touchEndX > 70 && sidebar.classList.contains('open')) {
+                sidebar.classList.remove('open'); backdrop.classList.remove('open');
+            }
+        }, false);
+    }
+
+    // 2. RENDER HEADER
+    if (!document.getElementById("app-header")) {
+        const oldHeaders = document.querySelectorAll("header:not(#app-header)");
+        oldHeaders.forEach(h => h.remove());
+
+        // Ambil nama_lengkap dari cache lokal dulu (sebelum di-update oleh syncUserData)
+        const username = localStorage.getItem('nama_lengkap') || localStorage.getItem('username') || 'Memuat nama...';
+        const rawRole = localStorage.getItem('user_role') || localStorage.getItem('role') || 'kasir';
+        
+        let roleLabel = 'Kasir';
+        if (rawRole.toLowerCase().includes('admin')) roleLabel = 'Admin';
+        else if (rawRole.toLowerCase().includes('super_admin')) roleLabel = 'Super Admin';
+        else if (rawRole.toLowerCase().includes('owner')) roleLabel = 'Owner';
+
+        const currentTheme = document.documentElement.getAttribute("data-theme") || "light";
+        const themeButtonText = currentTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
+
+        const currentPath = window.location.pathname.split("/").pop();
+        let pageTitle = "POS System";
+        if(currentPath.includes("dashboard")) pageTitle = "Dashboard";
+        if(currentPath.includes("penjualan")) pageTitle = "Kasir / Penjualan";
+        if(currentPath.includes("barang")) pageTitle = "Data Barang";
+        if(currentPath.includes("kategori")) pageTitle = "Kategori";
+        if(currentPath.includes("report")) pageTitle = "Laporan Penjualan";
+        if(currentPath.includes("user")) pageTitle = "Manajemen Pengguna";
+
+        const headerHTML = `
+        <header id="app-header">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <button onclick="toggleSidebar()" style="background: none; border: 1px solid var(--border); padding: 6px 10px; border-radius: 8px; cursor: pointer; font-size: 1rem; color: var(--text-main);" title="Menu">☰</button>
+                <h1 style="font-size: 1.1rem; margin: 0; color: var(--text-main); font-weight: bold;">${pageTitle}</h1>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+                <div style="background: var(--bg-main); border: 1px solid var(--border); padding: 4px 10px; border-radius: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.85rem;">
+                    <span style="font-size: 0.95rem;">👤</span>
+                    <div style="display: flex; flex-direction: column; text-align: left; line-height: 1.15;">
+                        <strong class="user-badge-name" style="color: var(--text-main); font-size: 0.8rem;">${username}</strong>
+                        <span style="font-size: 0.65rem; color: var(--primary); font-weight: 700; text-transform: uppercase;">${roleLabel}</span>
+                    </div>
+                </div>
+
+                <button id="theme-toggle-btn" onclick="toggleTheme()" style="background: var(--bg-main); border: 1px solid var(--border); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; color: var(--text-main); font-weight: 500;">
+                    ${themeButtonText}
+                </button>
+            </div>
+        </header>
+        `;
+        
+        const mainEl = document.querySelector('main');
+        if (mainEl) {
+            mainEl.insertAdjacentHTML("beforebegin", headerHTML);
+        } else {
+            document.body.insertAdjacentHTML("afterbegin", headerHTML);
+        }
+    }
+}
+
+// ==========================================
+// FUNGSI GLOBAL
+// ==========================================
+window.toggleSidebar = function() {
+    const sidebar = document.getElementById('app-sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (sidebar && backdrop) {
+        sidebar.classList.toggle('open');
+        backdrop.classList.toggle('open');
+    }
+}
+
+// Fungsi Toggle (Ubah Tema saat tombol diklik)
+export function toggleTheme() {
+    const themeKey = getUserThemeKey();
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem(themeKey, newTheme); // Simpan spesifik untuk user ini
+
+    // Diubah dari 'theme-toggle' menjadi 'theme-toggle-btn' agar sesuai dengan header
+    const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    if (themeToggleBtn) {
+        themeToggleBtn.innerHTML = newTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
+    }
+}
+window.toggleTheme = toggleTheme;
+
+window.logoutUser = function() {
+    localStorage.removeItem("is_logged_in");
+    localStorage.removeItem("active_store_id");
+    localStorage.removeItem("user_role");
+    localStorage.removeItem("nama_lengkap"); 
+    window.location.href = "login.html";
+};
+
+export async function getActiveStoreId() {
+    // Cek user yang sedang aktif di localStorage
+    const activeUser = JSON.parse(localStorage.getItem('active_user') || '{}');
+    
+    // Jika user adalah Admin All / Super Admin, jangan ambil store_id acak, kembalikan penanda khusus
+    if (activeUser && (activeUser.role === 'admin_all' || activeUser.email?.includes('admin') || activeUser.store_id === 'ALL')) {
+        return 'ALL_ADMIN';
+    }
+
+    let storeId = localStorage.getItem('active_store_id');
+    if (!storeId || storeId === 'null' || storeId === 'undefined' || storeId === 'ALL') {
+        try {
+            const { data, error } = await supabase.from('stores').select('id').limit(1).maybeSingle();
+            if (!error && data) {
+                storeId = data.id;
+                localStorage.setItem('active_store_id', storeId);
+            }
+        } catch (e) { console.warn(e); }
+    }
+    if (!storeId || storeId === 'null' || storeId === 'undefined') {
+        storeId = '00000000-0000-0000-0000-000000000001';
+        localStorage.setItem('active_store_id', storeId);
+    }
+    return storeId;
+}
+
+export async function generateAutoNota() {
+    const storeId = await getActiveStoreId();
+    try {
+        const { data, error } = await supabase.rpc('generate_no_nota', { p_store_id: storeId });
+        if (!error && data) return data;
+    } catch (e) { console.warn(e); }
+    return 'TRX-' + toDateStringCompressed(new Date()) + '-' + Math.floor(1000 + Math.random() * 9000);
+}
+
+function toDateStringCompressed(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}${m}${d}`;
+}
+
+export async function getSelectedStoreFilter() {
+    const activeStore = localStorage.getItem('active_store_id');
+    if (activeStore === 'ALL') return null; 
+    return activeStore || await getActiveStoreId();
+}
+
+export async function cleanupExpiredPendingStores() {
+    try {
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const { data: expiredStores, error } = await supabase.from('stores').select('id').eq('is_active', false).lt('created_at', oneHourAgo);
+        if (error || !expiredStores || expiredStores.length === 0) return;
+        const storeIds = expiredStores.map(s => s.id);
+        await supabase.from('users_profile').delete().in('store_id', storeIds);
+        await supabase.from('stores').delete().in('id', storeIds);
+    } catch (e) { console.warn(e); }
+}
+
+export async function checkPermission(actionCode) {
+    const userRole = localStorage.getItem("user_role");
+    if (userRole === 'super_admin' || userRole === 'admin_client') return true;
+    const userEmail = localStorage.getItem("user_email");
+    if (!userEmail) return false;
+    try {
+        const { data, error } = await supabase.from('users_profile').select('role').eq('email', userEmail).single();
+        if (error || !data) return false;
+        const storeId = localStorage.getItem('active_store_id');
+        const { data: roleData } = await supabase.from('roles').select('permissions').eq('store_id', storeId).eq('nama_role', data.role).maybeSingle();
+        if (!roleData || !roleData.permissions) return false;
+        const permissions = JSON.parse(roleData.permissions);
+        return permissions.includes(actionCode);
+    } catch (e) { return false; }
+}
+export function initTheme() {
+    const themeKey = getUserThemeKey();
+    const savedTheme = localStorage.getItem(themeKey);
+
+    // Default utama adalah 'light' jika belum pernah diubah oleh user
+    const currentTheme = savedTheme ? savedTheme : 'light';
+    
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    
+    // Update ikon atau status toggle jika ada di halaman
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    if (themeToggleBtn) {
+        themeToggleBtn.innerHTML = currentTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
+    }
+}

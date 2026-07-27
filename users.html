@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manajemen User - POS SaaS</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .content-body { padding: 20px; box-sizing: border-box; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; text-align: left; font-size: 0.95rem; }
+        th { background-color: var(--bg-main); color: var(--text-muted); padding: 12px 14px; font-weight: 600; border-bottom: 2px solid var(--border); }
+        td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text-main); vertical-align: middle; }
+        tr:hover td { background-color: rgba(255, 255, 255, 0.02); }
+
+        .form-group { margin-bottom: 16px; position: relative; }
+        .form-label { display: block; font-size: 0.85rem; margin-bottom: 6px; color: var(--text-muted); font-weight: 600; }
+        .form-input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-main); color: var(--text-main); font-size: 0.9rem; box-sizing: border-box; }
+        
+        .btn-submit { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; font-size: 0.9rem; cursor: pointer; width: 100%; }
+        .btn-submit:hover { opacity: 0.9; }
+        .btn-cancel { background: var(--border); color: var(--text-main); border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; font-size: 0.9rem; cursor: pointer; width: 100%; margin-top: 6px; display: none; }
+
+        /* --- MODERN CUSTOM DROPDOWN (GAYA MASTER BARANG) --- */
+        .custom-dropdown { position: relative; width: 100%; }
+        .dropdown-select-box {
+            width: 100%; padding: 10px; font-size: 0.9rem; border: 1px solid var(--border);
+            border-radius: 8px; background-color: var(--bg-main); color: var(--text-main); cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; transition: border-color 0.2s;
+        }
+        .dropdown-select-box:hover { border-color: var(--primary); }
+        .dropdown-list {
+            position: absolute; top: 105%; left: 0; width: 100%; max-height: 200px; overflow-y: auto;
+            background-color: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2); z-index: 1100; display: none;
+        }
+        .dropdown-item {
+            padding: 10px 14px; cursor: pointer; color: var(--text-main); font-size: 0.9rem;
+            display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;
+        }
+        .dropdown-item:hover { background-color: var(--border); color: var(--primary); }
+        .dropdown-item.selected { font-weight: bold; color: var(--primary); background: rgba(37, 99, 235, 0.08); }
+
+        /* Toast */
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: var(--surface); color: var(--text-main); border: 1px solid var(--border); padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 0.9rem; display: flex; align-items: center; gap: 10px; min-width: 280px; }
+        .toast.success { border-left: 4px solid #10b981; }
+        .toast.error { border-left: 4px solid #ef4444; }
+    </style>
+</head>
+<body>
+    <main>
+        <header style="padding: 20px 20px 0 20px;">
+            <h1 id="header-title">Manajemen User Toko</h1>
+        </header>
+        <div class="content-body">
+            
+            <!-- Form Tambah / Edit User -->
+            <div class="card">
+                <h2 id="form-title" style="font-size: 1.15rem; font-weight: 600; margin-bottom: 16px;">Tambah Pengguna / Kasir Baru</h2>
+                <form onsubmit="event.preventDefault(); simpanUser();">
+                    <input type="hidden" id="edit-user-id" value="">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; align-items: end;">
+                        <div>
+                            <label class="form-label">Nama Lengkap</label>
+                            <input type="text" id="user-nama" class="form-input" required placeholder="Nama Staf / Kasir">
+                        </div>
+                        <div>
+                            <label class="form-label">Email Akses</label>
+                            <input type="email" id="user-email" class="form-input" required placeholder="email@toko.com">
+                        </div>
+                        <div>
+                            <label class="form-label">Kata Sandi (Password)</label>
+                            <input type="password" id="user-password" class="form-input" placeholder="Kosongkan jika tidak diubah">
+                        </div>
+                        
+                        <!-- Custom Dropdown Role (Gaya Master Barang) -->
+                        <div>
+                            <label class="form-label">Pilih Role / Hak Akses</label>
+                            <input type="hidden" id="user-role" value="admin_client">
+                            <div class="custom-dropdown" id="dropdown-role-container">
+                                <div class="dropdown-select-box" onclick="toggleRoleDropdown()">
+                                    <span id="dropdown-role-text">👑 Admin Toko (Full Control)</span>
+                                    <span>▼</span>
+                                </div>
+                                <div class="dropdown-list" id="dropdown-role-list">
+                                    <div class="dropdown-item selected" onclick="pilihRole('admin_client', '👑 Admin Toko (Full Control)')">
+                                        <span>Admin Toko</span>
+                                        <small style="color:var(--text-muted)">Full Control</small>
+                                    </div>
+                                    <div class="dropdown-item" onclick="pilihRole('Kasir', '🏷️ Kasir')">
+                                        <span>Kasir</span>
+                                        <small style="color:var(--text-muted)">Operasional</small>
+                                    </div>
+                                    <!-- Role kustom akan dimuat di sini secara dinamis -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <button type="submit" id="btn-submit-user" class="btn-submit">Simpan User</button>
+                            <button type="button" id="btn-cancel-user" class="btn-cancel" onclick="resetForm()">Batal</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Daftar User di Toko Ini -->
+            <div class="card">
+                <h2 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 12px;">Daftar Pengguna Toko</h2>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nama Lengkap</th>
+                                <th>Email</th>
+                                <th>Role / Hak Akses</th>
+                                <th style="text-align: center; width: 150px;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabel-user">
+                            <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Memuat data pengguna...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="toast-container"></div>
+
+    <script type="module">
+        import { supabase, getActiveStoreId } from './App.js';
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3500);
+        }
+
+        let allUsersData = [];
+
+        // --- CUSTOM DROPDOWN LOGIC ---
+        window.toggleRoleDropdown = function() {
+            const list = document.getElementById('dropdown-role-list');
+            list.style.display = list.style.display === 'block' ? 'none' : 'block';
+        }
+
+        window.pilihRole = function(value, label) {
+            document.getElementById('user-role').value = value;
+            document.getElementById('dropdown-role-text').innerText = label;
+            document.getElementById('dropdown-role-list').style.display = 'none';
+
+            document.querySelectorAll('#dropdown-role-list .dropdown-item').forEach(el => el.classList.remove('selected'));
+            event.currentTarget.classList.add('selected');
+        }
+
+        window.addEventListener('click', function(e) {
+            if (!document.getElementById('dropdown-role-container').contains(e.target)) {
+                const list = document.getElementById('dropdown-role-list');
+                if (list) list.style.display = 'none';
+            }
+        });
+
+        // --- LOAD ROLES KE DROPDOWN ---
+        async function loadRoleOptions() {
+            const storeId = await getActiveStoreId();
+            const listContainer = document.getElementById('dropdown-role-list');
+            
+            // Default role dasar sistem
+            let htmlOptions = `
+                <div class="dropdown-item selected" onclick="pilihRole('admin_client', '👑 Admin Toko (Full Control)')">
+                    <span>Admin Toko</span>
+                    <small style="color:var(--text-muted)">Full Control</small>
+                </div>
+            `;
+
+            // Ambil role tambahan yang dibuat user di tabel roles
+            const { data: roles } = await supabase
+                .from('roles')
+                .select('nama_role, deskripsi')
+                .eq('store_id', storeId);
+
+            if (roles && roles.length > 0) {
+                roles.forEach(r => {
+                    htmlOptions += `
+                        <div class="dropdown-item" onclick="pilihRole('${r.nama_role}', '👤 ${r.nama_role}')">
+                            <span>${r.nama_role}</span>
+                            <small style="color:var(--text-muted)">${r.deskripsi || 'Kustom'}</small>
+                        </div>
+                    `;
+                });
+            }
+
+            listContainer.innerHTML = htmlOptions;
+        }
+
+        // --- LOAD USERS TABLE ---
+        async function loadUsers() {
+            const storeId = await getActiveStoreId();
+            const tbody = document.getElementById('tabel-user');
+            
+            const { data, error } = await supabase
+                .from('users_profile')
+                .select('*')
+                .eq('store_id', storeId);
+
+            if (error || !data || data.length === 0) {
+                allUsersData = [];
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Belum ada user lain terdaftar.</td></tr>`;
+                return;
+            }
+
+            allUsersData = data;
+            tbody.innerHTML = '';
+            data.forEach(user => {
+                const roleBadge = user.role === 'admin_client' 
+                    ? `<span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:0.75rem;">Admin Toko</span>`
+                    : `<span style="background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:0.75rem;">${user.role}</span>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${user.nama_lengkap}</strong></td>
+                        <td>${user.email}</td>
+                        <td>${roleBadge}</td>
+                        <td style="text-align: center;">
+                            <button class="btn" style="padding: 4px 8px; font-size:0.75rem;" onclick="mulaiEditUser('${user.id}')">✏️ Edit</button>
+                            <button class="btn" style="padding: 4px 8px; font-size:0.75rem; background:#ef4444; color:white; margin-left:4px;" onclick="hapusUser('${user.id}')">🗑️</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        window.simpanUser = async function() {
+            const storeId = await getActiveStoreId();
+            const editId = document.getElementById('edit-user-id').value;
+            const nama = document.getElementById('user-nama').value.trim();
+            const email = document.getElementById('user-email').value.trim();
+            const password = document.getElementById('user-password').value;
+            const role = document.getElementById('user-role').value;
+
+            if (editId) {
+                // Update User
+                const updateData = { nama_lengkap: nama, email: email, role: role };
+                if (password) updateData.password = password; // Update password hanya jika diisi
+
+                const { error } = await supabase.from('users_profile').update(updateData).eq('id', editId);
+
+                if (error) {
+                    showToast('Gagal memperbarui user: ' + error.message, 'error');
+                } else {
+                    showToast('User berhasil diperbarui!', 'success');
+                    resetForm();
+                    loadUsers();
+                }
+            } else {
+                // Tambah User Baru
+                const { error } = await supabase.from('users_profile').insert([{
+                    store_id: storeId,
+                    nama_lengkap: nama,
+                    email: email,
+                    password: password || '123456', // Default password jika kosong
+                    role: role
+                }]);
+
+                if (error) {
+                    showToast('Gagal menambahkan user: ' + error.message, 'error');
+                } else {
+                    showToast('User berhasil ditambahkan!', 'success');
+                    resetForm();
+                    loadUsers();
+                }
+            }
+        }
+
+        window.mulaiEditUser = function(id) {
+            const user = allUsersData.find(u => u.id === id);
+            if (!user) return;
+
+            document.getElementById('edit-user-id').value = user.id;
+            document.getElementById('user-nama').value = user.nama_lengkap;
+            document.getElementById('user-email').value = user.email;
+            document.getElementById('user-password').value = '';
+            document.getElementById('user-role').value = user.role;
+            
+            // Set teks dropdown sesuai role user
+            document.getElementById('dropdown-role-text').innerText = user.role === 'admin_client' ? '👑 Admin Toko (Full Control)' : `👤 ${user.role}`;
+
+            document.getElementById('form-title').innerText = `Edit User: ${user.nama_lengkap}`;
+            document.getElementById('btn-submit-user').innerText = 'Simpan Perubahan';
+            document.getElementById('btn-cancel-user').style.display = 'block';
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        window.resetForm = function() {
+            document.getElementById('edit-user-id').value = '';
+            document.getElementById('user-nama').value = '';
+            document.getElementById('user-email').value = '';
+            document.getElementById('user-password').value = '';
+            document.getElementById('user-role').value = 'admin_client';
+            document.getElementById('dropdown-role-text').innerText = '👑 Admin Toko (Full Control)';
+            document.getElementById('form-title').innerText = 'Tambah Pengguna / Kasir Baru';
+            document.getElementById('btn-submit-user').innerText = 'Simpan User';
+            document.getElementById('btn-cancel-user').style.display = 'none';
+        }
+
+        window.hapusUser = async function(id) {
+            if (!confirm('Apakah Anda yakin ingin menghapus user ini?')) return;
+            const { error } = await supabase.from('users_profile').delete().eq('id', id);
+            if (error) {
+                showToast('Gagal menghapus user: ' + error.message, 'error');
+            } else {
+                showToast('User berhasil dihapus.', 'success');
+                loadUsers();
+            }
+        }
+
+        // Inisialisasi awal
+        loadRoleOptions();
+        loadUsers();
+    </script>
+</body>
+</html>

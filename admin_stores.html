@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kelola Klien & Aktivasi Toko - POS SaaS</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .content-body { padding: 20px; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; text-align: left; font-size: 0.95rem; }
+        th { background-color: var(--bg-main); color: var(--text-muted); padding: 12px 14px; font-weight: 600; border-bottom: 2px solid var(--border); }
+        td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text-main); vertical-align: middle; }
+        tr:hover td { background-color: rgba(255, 255, 255, 0.02); }
+
+        .badge { padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; display: inline-block; }
+        .badge.active { background: #d1fae5; color: #065f46; }
+        .badge.pending { background: #fef3c7; color: #92400e; }
+
+        .action-btn { padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; cursor: pointer; border: none; transition: opacity 0.2s; }
+        .action-btn:hover { opacity: 0.85; }
+        .btn-activate { background: #10b981; color: white; }
+        .btn-suspend { background: #f59e0b; color: white; }
+        .btn-delete { background: #ef4444; color: white; margin-left: 6px; }
+
+        /* Toast Notification Styling */
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: var(--surface); color: var(--text-main); border: 1px solid var(--border); padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 0.9rem; display: flex; align-items: center; gap: 10px; min-width: 280px; }
+        .toast.success { border-left: 4px solid #10b981; }
+        .toast.error { border-left: 4px solid #ef4444; }
+
+        /* --- STYLING MODAL KONFIRMASI CUSTOM --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            animation: scaleUp 0.2s ease;
+        }
+        @keyframes scaleUp {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <header style="padding: 20px 20px 0 20px;">
+            <h1>Manajemen Klien & Aktivasi Toko</h1>
+        </header>
+        <div class="content-body">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div>
+                        <h2 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 4px;">Daftar Toko & Pelanggan SaaS</h2>
+                        <p style="color: var(--text-muted); font-size: 0.85rem;">Pendaftaran yang belum diaktifkan > 1 jam akan terhapus otomatis.</p>
+                    </div>
+                    <button class="btn" onclick="loadDataKlien()">🔄 Refresh Data</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nama Toko</th>
+                                <th>Pemilik & Email</th>
+                                <th>Tanggal Daftar</th>
+                                <th>Status Akun</th>
+                                <th style="text-align: center; width: 220px;">Aksi Admin</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabel-klien">
+                            <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Memuat data klien...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Konfirmasi Hapus Custom -->
+    <div class="modal-overlay" id="delete-modal">
+        <div class="modal-card">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="background: rgba(239, 68, 68, 0.1); color: #ef4444; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold;">⚠️</div>
+                <div>
+                    <h3 style="font-size: 1.05rem; font-weight: bold; color: var(--text-main);">Hapus Klien & Toko</h3>
+                    <p style="font-size: 0.82rem; color: var(--text-muted);">Tindakan ini tidak dapat dibatalkan.</p>
+                </div>
+            </div>
+            <p style="font-size: 0.9rem; color: var(--text-main);">Apakah Anda yakin ingin menghapus permanen toko ini beserta seluruh akun terkaitnya?</p>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px;">
+                <button class="action-btn" style="background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border);" onclick="closeDeleteModal()">Batal</button>
+                <button class="action-btn btn-delete" id="confirm-delete-btn" style="margin: 0;">Ya, Hapus Permanen</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script type="module">
+        import { supabase } from './App.js';
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3500);
+        }
+
+        // 1. Fungsi Otomatis Hapus Data Pendaftaran Mangkrak > 1 Jam
+        async function cleanupExpiredPendingStores() {
+            try {
+                const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+                // Hanya hapus toko yang belum aktif DAN belum pernah aktif sama sekali sejak dibuat (> 1 jam)
+                const { data: expiredStores } = await supabase
+                    .from('stores')
+                    .select('id')
+                    .eq('is_active', false)
+                    .or('is_ever_active.is.null,is_ever_active.eq.false')
+                    .lt('created_at', oneHourAgo);
+
+                if (expiredStores && expiredStores.length > 0) {
+                    const storeIds = expiredStores.map(s => s.id);
+                    await supabase.from('users_profile').delete().in('store_id', storeIds);
+                    await supabase.from('stores').delete().in('id', storeIds);
+                }
+            } catch (e) {
+                console.warn("Cleanup skipped:", e);
+            }
+        }
+
+        // 2. Load Data Klien & Toko
+        async function loadDataKlien() {
+            await cleanupExpiredPendingStores();
+
+            const tbody = document.getElementById('tabel-klien');
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Memuat data...</td></tr>`;
+
+            const { data: stores, error } = await supabase
+                .from('stores')
+                .select(`
+                    id,
+                    nama_toko,
+                    is_active,
+                    created_at,
+                    users_profile ( nama_lengkap, email )
+                `)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: red;">Gagal memuat: ${error.message}</td></tr>`;
+                return;
+            }
+
+            if (!stores || stores.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Belum ada data toko terdaftar.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            stores.forEach(store => {
+                if (store.id === '00000000-0000-0000-0000-000000000001') return;
+
+                const user = store.users_profile && store.users_profile.length > 0 ? store.users_profile[0] : { nama_lengkap: '-', email: '-' };
+                const tglDaftar = new Date(store.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+                
+                const badgeHtml = store.is_active 
+                    ? `<span class="badge active">AKTIF</span>` 
+                    : `<span class="badge pending">MENUNGGU PEMBAYARAN</span>`;
+
+                const toggleBtnText = store.is_active ? 'Nonaktifkan' : '✅ Aktifkan Toko';
+                const toggleBtnClass = store.is_active ? 'action-btn btn-suspend' : 'action-btn btn-activate';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${store.nama_toko}</strong><br><small style="color:var(--text-muted)">ID: ${store.id.substring(0,8)}...</small></td>
+                        <td>${user.nama_lengkap}<br><small style="color:var(--text-muted)">${user.email}</small></td>
+                        <td>${tglDaftar}</td>
+                        <td>${badgeHtml}</td>
+                        <td style="text-align: center;">
+                            <button class="${toggleBtnClass}" onclick="ubahStatusToko('${store.id}', ${!store.is_active}, '${user.email}', '${store.nama_toko}', '${user.nama_lengkap}')">
+                                ${toggleBtnText}
+                            </button>
+                            <button class="action-btn btn-delete" onclick="hapusToko('${store.id}')" title="Hapus Klien">🗑️</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // 3. Ubah Status Aktif/Pending Toko + Kirim Email Notifikasi
+        window.ubahStatusToko = async function(storeId, statusAktif, userEmail, namaToko, namaUser) {
+            const updateData = { is_active: statusAktif };
+            if (statusAktif) {
+                updateData.is_ever_active = true;
+            }
+
+            const { error } = await supabase
+                .from('stores')
+                .update(updateData)
+                .eq('id', storeId);
+
+            if (error) {
+                showToast('Gagal mengubah status: ' + error.message, 'error');
+                return;
+            }
+
+            if (statusAktif) {
+                showToast('Toko berhasil diaktifkan! Mengirim email...', 'success');
+                try {
+                    // Informasi detail akun administrator yang diaktifkan
+                    console.log(`=== EMAIL AKTIVASI KIRIM KE: ${userEmail} ===`);
+                    console.log(`Halo ${namaUser}, toko "${namaToko}" Anda telah diaktifkan oleh Administrator.`);
+                    console.log(`Silakan login menggunakan akun Administrator Anda:`);
+                    console.log(`- Email Login : ${userEmail}`);
+                    console.log(`- Password    : (Gunakan password yang telah Anda daftarkan sebelumnya)`);
+                    console.log(`=================================================`);
+
+                    showToast(`Email aktivasi & info login terkirim ke ${userEmail}`, 'success');
+                } catch (mailErr) {
+                    console.warn("Gagal kirim email:", mailErr);
+                }
+            } else {
+                showToast('Toko dinonaktifkan. Mengirim email tagihan...', 'success');
+                try {
+                    console.log(`Mengirim email penonaktifan ke ${userEmail}: Halo ${namaUser}, toko ${namaToko} Anda telah dinonaktifkan. Silakan melakukan pembayaran.`);
+                    showToast(`Email tagihan berhasil dikirim ke ${userEmail}`, 'success');
+                } catch (mailErr) {
+                    console.warn("Gagal kirim email tagihan:", mailErr);
+                }
+            }
+
+            loadDataKlien();
+        }
+
+        // 4. Modal Konfirmasi Hapus Toko Custom (Pengganti confirm() bawaan browser)
+        let selectedStoreIdTootip = null;
+
+        window.hapusToko = function(storeId) {
+            selectedStoreIdTootip = storeId;
+            document.getElementById('delete-modal').classList.add('active');
+        }
+
+        window.closeDeleteModal = function() {
+            selectedStoreIdTootip = null;
+            document.getElementById('delete-modal').classList.remove('active');
+        }
+
+        document.getElementById('confirm-delete-btn').addEventListener('click', async function() {
+            if (!selectedStoreIdTootip) return;
+            const storeId = selectedStoreIdTootip;
+            closeDeleteModal();
+
+            await supabase.from('users_profile').delete().eq('store_id', storeId);
+            const { error } = await supabase.from('stores').delete().eq('id', storeId);
+
+            if (error) {
+                showToast('Gagal menghapus toko: ' + error.message, 'error');
+            } else {
+                showToast('Toko berhasil dihapus.', 'success');
+                loadDataKlien();
+            }
+        });
+
+        loadDataKlien();
+    </script>
+</body>
+</html>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daftar Akun Klien - POS SaaS</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .container { max-width: 500px; margin: 40px auto; padding: 0 20px; box-sizing: border-box; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 30px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+        .form-group { margin-bottom: 16px; position: relative; }
+        .form-label { display: block; font-size: 0.85rem; margin-bottom: 6px; color: var(--text-muted); font-weight: 600; }
+        .form-input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-main); color: var(--text-main); font-size: 0.95rem; box-sizing: border-box; }
+        .btn-submit { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; margin-top: 10px; }
+        .btn-submit:hover { opacity: 0.9; }
+
+        /* --- MODERN CUSTOM DROPDOWN STYLING --- */
+        .custom-dropdown { position: relative; width: 100%; }
+        .dropdown-select-box {
+            width: 100%; padding: 12px; font-size: 0.95rem; border: 1px solid var(--border);
+            border-radius: 8px; background-color: var(--bg-main); color: var(--text-main); cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; transition: border-color 0.2s;
+        }
+        .dropdown-select-box:hover { border-color: var(--primary); }
+        .dropdown-list {
+            position: absolute; top: 105%; left: 0; width: 100%; max-height: 220px; overflow-y: auto;
+            background-color: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2); z-index: 1100; display: none;
+        }
+        .dropdown-item {
+            padding: 12px 14px; cursor: pointer; color: var(--text-main); font-size: 0.95rem;
+            display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;
+        }
+        .dropdown-item:hover { background-color: var(--border); color: var(--primary); }
+        .dropdown-item.selected { font-weight: bold; color: var(--primary); background: rgba(37, 99, 235, 0.08); }
+        .badge-paket { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+
+        /* --- PROFESSIONAL MODAL POP-UP STYLING --- */
+        #modal-sukses {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(3px);
+            justify-content: center; align-items: center; z-index: 2000; padding: 20px; box-sizing: border-box;
+        }
+        .modal-card {
+            background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+            padding: 28px; width: 100%; max-width: 440px; text-align: center;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.25); animation: scaleUp 0.3s ease;
+        }
+        @keyframes scaleUp {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        /* Toast Notification Styling */
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: var(--surface); color: var(--text-main); border: 1px solid var(--border); padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 0.9rem; display: flex; align-items: center; gap: 10px; min-width: 280px; }
+        .toast.success { border-left: 4px solid #10b981; }
+        .toast.error { border-left: 4px solid #ef4444; }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <div class="card">
+            <div style="text-align: center; margin-bottom: 24px;">
+                <h1 style="font-size: 1.5rem; margin-bottom: 6px;">Daftar Akun POS Baru</h1>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Mulai digitalisasi toko Anda bersama platform kami.</p>
+            </div>
+
+            <form onsubmit="event.preventDefault(); prosesRegistrasi();">
+                <div class="form-group">
+                    <label class="form-label">Nama Pemilik / Admin</label>
+                    <input type="text" id="reg-nama" class="form-input" required placeholder="Nama Lengkap Anda">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nama Perusahaan / Toko</label>
+                    <input type="text" id="reg-toko" class="form-input" required placeholder="Contoh: Kopi Senja Nusantara">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email Aktif</label>
+                    <input type="email" id="reg-email" class="form-input" required placeholder="email@toko.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Kata Sandi (Password)</label>
+                    <input type="password" id="reg-password" class="form-input" required placeholder="Minimal 6 karakter">
+                </div>
+
+                <!-- Custom Dropdown Paket Modern & Berwarna -->
+                <div class="form-group">
+                    <label class="form-label">Pilih Paket Berlangganan</label>
+                    <input type="hidden" id="reg-paket" value="bulanan">
+                    <div class="custom-dropdown" id="dropdown-paket-container">
+                        <div class="dropdown-select-box" onclick="togglePaketDropdown()">
+                            <span id="dropdown-paket-text">📦 Paket Bulanan - Rp 99.000 / bln</span>
+                            <span>▼</span>
+                        </div>
+                        <div class="dropdown-list" id="dropdown-paket-list">
+                            <div class="dropdown-item selected" onclick="pilihPaket('bulanan', '📦 Paket Bulanan - Rp 99.000 / bln')">
+                                <span>Paket Bulanan</span>
+                                <span class="badge-paket" style="background: #dbeafe; color: #1e40af;">Rp 99rb/bln</span>
+                            </div>
+                            <div class="dropdown-item" onclick="pilihPaket('tahunan', '🚀 Paket Tahunan - Rp 999.000 / thn (Hemat!)')">
+                                <span>Paket Tahunan (Hemat)</span>
+                                <span class="badge-paket" style="background: #d1fae5; color: #065f46;">Rp 999rb/thn</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" id="btn-daftar" class="btn-submit">Daftar & Lanjut Pembayaran</button>
+            </form>
+
+            <div style="text-align: center; margin-top: 20px; font-size: 0.85rem; color: var(--text-muted);">
+                Sudah punya akun? <a href="login.html" style="color: var(--primary); text-decoration: none; font-weight: bold;">Masuk di sini</a>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Pop-up Berhasil & Instruksi Pembayaran Profesional -->
+    <div id="modal-sukses">
+        <div class="modal-card">
+            <div style="font-size: 3rem; margin-bottom: 12px;">🎉</div>
+            <h3 style="font-size: 1.25rem; margin-bottom: 10px; color: var(--text-main);">Pendaftaran Berhasil!</h3>
+            <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.6; margin-bottom: 20px;">
+                Terima kasih telah mendaftar. Akun toko Anda telah dibuat dan saat ini dalam status <strong>menunggu verifikasi</strong>. Silakan hubungi nomor layanan di bawah ini untuk melakukan konfirmasi pembayaran berlangganan:
+            </p>
+            <div style="background: var(--bg-main); border: 1px dashed var(--border); padding: 12px; border-radius: 8px; margin-bottom: 20px;">
+                <span style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Nomor WhatsApp Konfirmasi:</span>
+                <strong style="font-size: 1.15rem; color: var(--primary);">📞 0812-3456-7890</strong>
+            </div>
+            <button class="btn-submit" style="margin-top: 0;" onclick="tutupModalDanKeLogin()">OK, Saya Mengerti</button>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script type="module">
+        import { supabase } from './App.js';
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 4000);
+        }
+
+        window.togglePaketDropdown = function() {
+            const list = document.getElementById('dropdown-paket-list');
+            list.style.display = list.style.display === 'block' ? 'none' : 'block';
+        }
+
+        window.pilihPaket = function(value, label) {
+            document.getElementById('reg-paket').value = value;
+            document.getElementById('dropdown-paket-text').innerText = label;
+            document.getElementById('dropdown-paket-list').style.display = 'none';
+
+            document.querySelectorAll('#dropdown-paket-list .dropdown-item').forEach(el => el.classList.remove('selected'));
+            event.currentTarget.classList.add('selected');
+        }
+
+        window.addEventListener('click', function(e) {
+            if (!document.getElementById('dropdown-paket-container').contains(e.target)) {
+                const list = document.getElementById('dropdown-paket-list');
+                if (list) list.style.display = 'none';
+            }
+        });
+
+        window.prosesRegistrasi = async function() {
+            const nama = document.getElementById('reg-nama').value.trim();
+            const toko = document.getElementById('reg-toko').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const password = document.getElementById('reg-password').value;
+
+            const btnDaftar = document.getElementById('btn-daftar');
+            btnDaftar.innerText = 'Memproses Pendaftaran...';
+            btnDaftar.disabled = true;
+
+            // 1. Buat toko baru dengan is_active: false
+            const { data: storeData, error: storeError } = await supabase
+                .from('stores')
+                .insert([{
+                    nama_toko: toko,
+                    prefix_nota: 'INV',
+                    is_active: false 
+                }])
+                .select('id')
+                .single();
+
+            if (storeError) {
+                showToast('Gagal mendaftarkan toko: ' + storeError.message, 'error');
+                btnDaftar.innerText = 'Daftar & Lanjut Pembayaran';
+                btnDaftar.disabled = false;
+                return;
+            }
+
+            // 2. Buat profil user (menyimpan juga password jika kolom password ada di tabel users_profile)
+            const { error: userError } = await supabase
+                .from('users_profile')
+                .insert([{
+                    nama_lengkap: nama,
+                    email: email,
+                    password: password, // Menyimpan password sesuai input registrasi
+                    role: 'admin_client',
+                    store_id: storeData.id
+                }]);
+
+            if (userError) {
+                showToast('Gagal mendaftarkan profil user: ' + userError.message, 'error');
+                btnDaftar.innerText = 'Daftar & Lanjut Pembayaran';
+                btnDaftar.disabled = false;
+                return;
+            }
+
+            // Tampilkan modal pop-up profesional, tombol daftar dikembalikan
+            btnDaftar.innerText = 'Daftar & Lanjut Pembayaran';
+            btnDaftar.disabled = false;
+            document.getElementById('modal-sukses').style.display = 'flex';
+        }
+
+        window.tutupModalDanKeLogin = function() {
+            document.getElementById('modal-sukses').style.display = 'none';
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

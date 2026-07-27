@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - POS SaaS</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .container { max-width: 420px; margin: 60px auto; padding: 0 20px; box-sizing: border-box; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 30px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+        .form-group { margin-bottom: 16px; }
+        .form-label { display: block; font-size: 0.85rem; margin-bottom: 6px; color: var(--text-muted); font-weight: 600; }
+        .form-input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-main); color: var(--text-main); font-size: 0.95rem; box-sizing: border-box; }
+        .btn-submit { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; margin-top: 10px; }
+        .btn-submit:hover { opacity: 0.9; }
+
+        /* Toast Modern */
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: var(--surface); color: var(--text-main); border: 1px solid var(--border); padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 0.9rem; display: flex; align-items: center; gap: 10px; min-width: 280px; }
+        .toast.success { border-left: 4px solid #10b981; }
+        .toast.error { border-left: 4px solid #ef4444; }
+        .toast.warning { border-left: 4px solid #f59e0b; }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <div class="card">
+            <div style="text-align: center; margin-bottom: 24px;">
+                <h1 style="font-size: 1.5rem; margin-bottom: 6px;">Masuk ke POS SaaS</h1>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Masukkan email dan kata sandi Anda.</p>
+            </div>
+
+            <form onsubmit="event.preventDefault(); prosesLogin();">
+                <div class="form-group">
+                    <label class="form-label">Email Terdaftar</label>
+                    <input type="email" id="login-email" class="form-input" required placeholder="email@toko.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Kata Sandi (Password)</label>
+                    <input type="password" id="login-password" class="form-input" required placeholder="Masukkan kata sandi">
+                </div>
+
+                <button type="submit" id="btn-login" class="btn-submit">Masuk</button>
+            </form>
+
+            <div style="text-align: center; margin-top: 20px; font-size: 0.85rem; color: var(--text-muted);">
+                Belum punya akun? <a href="register.html" style="color: var(--primary); text-decoration: none; font-weight: bold;">Daftar di sini</a>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast-container"></div>
+
+    <script type="module">
+        import { supabase } from './App.js';
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '❌'}</span> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 4000);
+        }
+
+        window.prosesLogin = async function() {
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            const btnLogin = document.getElementById('btn-login');
+            
+            btnLogin.innerText = 'Memeriksa...';
+            btnLogin.disabled = true;
+
+            // 1. Cek user di tabel users_profile
+            const { data: userData, error: userError } = await supabase
+                .from('users_profile')
+                .select('*')
+                .eq('email', email)
+                .maybeSingle();
+
+            if (userError || !userData) {
+                showToast('Email tidak ditemukan atau belum terdaftar!', 'error');
+                btnLogin.innerText = 'Masuk';
+                btnLogin.disabled = false;
+                return;
+            }
+
+            // 2. Validasi Password
+            if (userData.password && userData.password !== password) {
+                showToast('Kata sandi yang Anda masukkan salah!', 'error');
+                btnLogin.innerText = 'Masuk';
+                btnLogin.disabled = false;
+                return;
+            }
+
+            // 3. Jika role adalah Super Admin (Admin Global), izinkan langsung masuk
+            if (userData.role === 'super_admin') {
+                localStorage.setItem("is_logged_in", "true");
+                localStorage.setItem("active_store_id", "ALL");
+                localStorage.setItem("user_role", "super_admin");
+                localStorage.setItem("user_email", userData.email);
+
+                showToast('Login Admin Global Berhasil!', 'success');
+                setTimeout(() => { window.location.href = 'dashboard.html'; }, 1000);
+                return;
+            }
+
+            // 4. Cek apakah toko klien sudah aktif (is_active = true)
+            const { data: storeData, error: storeError } = await supabase
+                .from('stores')
+                .select('is_active')
+                .eq('id', userData.store_id)
+                .single();
+
+            if (storeError || !storeData || !storeData.is_active) {
+                showToast('Akun Anda belum diaktifkan. Silakan hubungi admin untuk konfirmasi pembayaran.', 'warning');
+                btnLogin.innerText = 'Masuk';
+                btnLogin.disabled = false;
+                return;
+            }
+
+            // 5. Jika aktif dan password benar, izinkan login
+            localStorage.setItem("is_logged_in", "true");
+            localStorage.setItem("active_store_id", userData.store_id);
+            localStorage.setItem("user_role", userData.role);
+            localStorage.setItem("user_email", userData.email);
+
+            showToast('Login berhasil! Mengarahkan...', 'success');
+            setTimeout(() => {
+                window.location.href = 'penjualan.html';
+            }, 1000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kelola Data Barang - POS SaaS</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* --- MODERN CLEAN TABLE & UI STYLING --- */
+        .content-body {
+            padding: 20px;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+        th {
+            background-color: var(--bg-main);
+            color: var(--text-muted);
+            padding: 12px 14px;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
+        }
+        td {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-main);
+            vertical-align: middle;
+        }
+        tr:hover td {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .action-btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .action-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke-width: 2;
+        }
+        .btn-edit { color: var(--primary); }
+        .btn-edit:hover { background-color: var(--border); border-color: var(--primary); }
+        
+        .btn-delete { color: #ef4444; }
+        .btn-delete:hover { background-color: #fee2e2; border-color: #ef4444; }
+
+        /* Tombol Hapus Disabled */
+        .btn-delete:disabled, .action-btn:disabled {
+            color: var(--text-muted);
+            border-color: var(--border);
+            background-color: var(--bg-main);
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        /* Toast Notification Styling */
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            background: var(--surface);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 250px;
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+        }
+        .toast.success { border-left: 4px solid #10b981; }
+        .toast.error { border-left: 4px solid #ef4444; }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; transform: translateY(10px); }
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+            position: relative;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            color: var(--text-muted);
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-main);
+            color: var(--text-main);
+            font-size: 0.95rem;
+            box-sizing: border-box;
+        }
+        .form-group input:disabled {
+            background-color: var(--border);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        /* --- MODERN CUSTOM DROPDOWN STYLING --- */
+        .custom-dropdown {
+            position: relative;
+            width: 100%;
+        }
+        .dropdown-select-box {
+            width: 100%;
+            padding: 10px 14px;
+            font-size: 0.95rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background-color: var(--surface);
+            color: var(--text-main);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+        .dropdown-select-box:hover {
+            border-color: var(--primary);
+        }
+        .dropdown-list {
+            position: absolute;
+            top: 105%;
+            left: 0;
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            z-index: 1100;
+            display: none;
+        }
+        .dropdown-item {
+            padding: 10px 14px;
+            cursor: pointer;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            transition: background 0.15s;
+        }
+        .dropdown-item:hover {
+            background-color: var(--border);
+            color: var(--primary);
+        }
+        .dropdown-item.selected {
+            font-weight: bold;
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <header style="padding: 20px 20px 0 20px;">
+            <h1>Kelola Data Barang & SKU</h1>
+        </header>
+        <div class="content-body">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 1.2rem; font-weight: 600;">Daftar Produk / SKU</h2>
+                    <button class="btn" id="btn-tambah-barang" onclick="bukaModalTambah()" style="display: none;">+ Tambah Barang</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 70px; text-align: center;">Foto</th>
+                                <th>SKU ID</th>
+                                <th>Nama Barang</th>
+                                <th>Kategori</th>
+                                <th>Satuan</th>
+                                <th>Harga Jual</th>
+                                <th style="text-align: center; width: 110px;" id="th-aksi">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabel-barang">
+                            <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Memuat data barang...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container"></div>
+
+    <!-- Modal Form Tambah/Edit Barang -->
+    <div id="modal-barang" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(2px); justify-content: center; align-items: center; z-index: 1000; overflow-y: auto; padding: 20px 0;">
+        <div class="card" style="width: 100%; max-width: 450px; background: var(--surface); margin: auto;">
+            <h3 id="modal-title" style="margin-bottom: 16px; font-size: 1.1rem;">Tambah Barang Baru</h3>
+            <input type="hidden" id="edit-sku">
+            <input type="hidden" id="status-terpakai" value="false">
+            <input type="hidden" id="old-image-url">
+            
+            <div class="form-group">
+                <label>SKU ID (Kode Barang)</label>
+                <input type="text" id="input-sku" placeholder="Contoh: SKU001">
+            </div>
+            <div class="form-group">
+                <label>Nama Barang</label>
+                <input type="text" id="input-nama" placeholder="Contoh: Kopi Susu Aren">
+            </div>
+
+            <!-- Custom Dropdown Kategori Modern -->
+            <div class="form-group">
+                <label>Kategori</label>
+                <input type="hidden" id="input-kategori-id">
+                <div class="custom-dropdown" id="dropdown-kategori-container">
+                    <div class="dropdown-select-box" onclick="toggleDropdownList()">
+                        <span id="dropdown-selected-text">Pilih Kategori...</span>
+                        <span>▼</span>
+                    </div>
+                    <div class="dropdown-list" id="dropdown-options-list">
+                        <!-- Opsi dimuat via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Satuan</label>
+                <input type="text" id="input-satuan" placeholder="Contoh: Pcs, Cup, Botol">
+            </div>
+            <div class="form-group">
+                <label>Harga Jual (Rp)</label>
+                <input type="number" id="input-harga" placeholder="Contoh: 15000">
+            </div>
+            <div class="form-group">
+                <label>Foto Produk (Otomatis Dikompres)</label>
+                <input type="file" id="input-image" accept="image/*" onchange="previewAndCompressImage(event)">
+                <div id="preview-container" style="margin-top: 8px; display: none;">
+                    <img id="img-preview" src="" alt="Preview" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border);">
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button class="btn" style="background: var(--text-muted);" onclick="tutupModal()">Batal</button>
+                <button class="btn" id="btn-simpan" onclick="simpanBarang()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Konfirmasi Hapus -->
+    <div id="modal-konfirmasi" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(2px); justify-content: center; align-items: center; z-index: 1000;">
+        <div class="card" style="width: 100%; max-width: 380px; background: var(--surface); text-align: center; padding: 24px;">
+            <div style="font-size: 2.5rem; margin-bottom: 12px;">⚠️</div>
+            <h3 style="margin-bottom: 8px; font-size: 1.1rem;">Konfirmasi Hapus</h3>
+            <p id="konfirmasi-pesan" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">Apakah Anda yakin ingin menghapus barang ini?</p>
+            <input type="hidden" id="delete-sku">
+            <div style="display: flex; justify-content: center; gap: 10px;">
+                <button class="btn" style="background: var(--text-muted); flex: 1;" onclick="tutupModalHapus()">Batal</button>
+                <button class="btn" style="background: #ef4444; flex: 1;" onclick="eksekusiHapus()">Ya, Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { supabase, getActiveStoreId, checkPermission } from './App.js';
+
+
+        let base64ImageString = ''; 
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3000);
+        }
+
+        window.previewAndCompressImage = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 250; 
+                    const MAX_HEIGHT = 250; 
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    base64ImageString = canvas.toDataURL('image/jpeg', 0.75);
+
+                    document.getElementById('img-preview').src = base64ImageString;
+                    document.getElementById('preview-container').style.display = 'block';
+                }
+            }
+            reader.readAsDataURL(file);
+        }
+
+        window.toggleDropdownList = function() {
+            const list = document.getElementById('dropdown-options-list');
+            if (document.getElementById('input-kategori-id').dataset.disabled === "true") return;
+            list.style.display = list.style.display === 'block' ? 'none' : 'block';
+        }
+
+        window.pilihKategoriItem = function(id, nama) {
+            document.getElementById('input-kategori-id').value = id;
+            document.getElementById('dropdown-selected-text').innerText = nama;
+            document.getElementById('dropdown-options-list').style.display = 'none';
+        }
+
+        window.addEventListener('click', function(e) {
+            if (!document.getElementById('dropdown-kategori-container').contains(e.target)) {
+                const list = document.getElementById('dropdown-options-list');
+                if (list) list.style.display = 'none';
+            }
+        });
+
+        async function loadCustomDropdownKategori(selectedId = '') {
+            const optionsList = document.getElementById('dropdown-options-list');
+            const selectedText = document.getElementById('dropdown-selected-text');
+            const hiddenInput = document.getElementById('input-kategori-id');
+            const storeId = await getActiveStoreId();
+
+            const { data, error } = await supabase
+                .from('categories')
+                .select('id, nama_kategori')
+                .eq('store_id', storeId)
+                .order('nama_kategori');
+            
+            if (error) {
+                console.error("Gagal load kategori:", error.message);
+                return;
+            }
+
+            optionsList.innerHTML = '';
+            optionsList.innerHTML += `<div class="dropdown-item" onclick="pilihKategoriItem('', 'Pilih Kategori...')">Pilih Kategori...</div>`;
+
+            let foundSelectedName = 'Pilih Kategori...';
+            hiddenInput.value = '';
+
+            data.forEach(kat => {
+                const isSelected = kat.id === selectedId;
+                if (isSelected) {
+                    foundSelectedName = kat.nama_kategori;
+                    hiddenInput.value = kat.id;
+                }
+                optionsList.innerHTML += `<div class="dropdown-item ${isSelected ? 'selected' : ''}" onclick="pilihKategoriItem('${kat.id}', '${kat.nama_kategori}')">${kat.nama_kategori}</div>`;
+            });
+
+            selectedText.innerText = foundSelectedName;
+        }
+
+        async function loadBarang() {
+            const tbody = document.getElementById('tabel-barang');
+            const storeId = await getActiveStoreId();
+
+            // Cek hak akses role
+            const canEdit = await checkPermission('edit_barang');
+            const canDelete = await checkPermission('delete_barang');
+
+            // Atur visibilitas tombol Tambah Barang
+            const btnTambah = document.getElementById('btn-tambah-barang');
+            if (btnTambah) {
+                btnTambah.style.display = canEdit ? 'inline-block' : 'none';
+            }
+
+            // 1. Ambil data produk
+            const { data, error } = await supabase
+                .from('products')
+                .select(`
+                    sku_id,
+                    nama_barang,
+                    satuan,
+                    harga_jual,
+                    image_url,
+                    categories ( id, nama_kategori )
+                `)
+                .eq('store_id', storeId)
+                .order('nama_barang', { ascending: true });
+
+            if (error) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: red;">Gagal memuat: ${error.message}</td></tr>`;
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Belum ada data barang.</td></tr>`;
+                return;
+            }
+
+            // 2. Ambil data transaksi penjualan untuk mendeteksi barang mana yang sudah dipakai
+            const { data: transaksiList } = await supabase
+                .from('transaction_items')
+                .select('sku_id')
+                .eq('store_id', storeId);
+
+            const usedSkuSet = new Set();
+            if (transaksiList) {
+                transaksiList.forEach(t => usedSkuSet.add(t.sku_id));
+            }
+
+            tbody.innerHTML = '';
+            data.forEach(item => {
+                const namaKategori = item.categories ? item.categories.nama_kategori : '<span style="color:red">Tanpa Kategori</span>';
+                const sudahTerpakai = usedSkuSet.has(item.sku_id);
+                
+                let imgTag = '';
+                if (item.image_url && item.image_url.trim() !== '') {
+                    imgTag = `<img src="${item.image_url}" alt="Foto" style="width: 42px; height: 42px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); display: block; margin: 0 auto;">`;
+                } else {
+                    imgTag = `<div style="width: 42px; height: 42px; background: var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: var(--text-muted); margin: 0 auto;">No Img</div>`;
+                }
+
+                // Tombol Edit
+                const editBtnHtml = canEdit 
+                    ? `<button class="action-btn btn-edit" title="Edit Barang" onclick="persiapanEdit('${item.sku_id}', '${item.nama_barang}', '${item.categories ? item.categories.id : ''}', '${item.satuan}', '${item.harga_jual}', '${item.image_url || ''}')">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.862 4.487zm0 0L19.5 7.125" />
+                            </svg>
+                       </button>`
+                    : '';
+
+                // Tombol Hapus (Disabled jika sudah terpakai di transaksi atau tidak ada hak akses delete)
+                let deleteBtnHtml = '';
+                if (canDelete) {
+                    const deleteDisabledAttr = sudahTerpakai 
+                        ? `disabled title="Tidak dapat dihapus karena sudah masuk riwayat transaksi"` 
+                        : `title="Hapus Barang" onclick="bukaModalHapus('${item.sku_id}', '${item.nama_barang}')"`;
+
+                    deleteBtnHtml = `
+                        <button class="action-btn btn-delete" ${deleteDisabledAttr}>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                            </svg>
+                        </button>`;
+                }
+
+                const actionCell = (canEdit || canDelete)
+                    ? `<td style="text-align: center;"><div style="display: inline-flex; gap: 6px;">${editBtnHtml}${deleteBtnHtml}</div></td>`
+                    : `<td style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">-</td>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="text-align: center;">${imgTag}</td>
+                        <td><strong>${item.sku_id}</strong></td>
+                        <td>${item.nama_barang}</td>
+                        <td>${namaKategori}</td>
+                        <td>${item.satuan}</td>
+                        <td>Rp ${Number(item.harga_jual).toLocaleString('id-ID')}</td>
+                        ${actionCell}
+                    </tr>
+                `;
+            });
+        }
+
+        window.bukaModalTambah = async function() {
+            document.getElementById('modal-title').innerText = 'Tambah Barang Baru';
+            document.getElementById('edit-sku').value = '';
+            document.getElementById('status-terpakai').value = 'false';
+            document.getElementById('old-image-url').value = '';
+            base64ImageString = '';
+            
+            const inputSku = document.getElementById('input-sku');
+            inputSku.value = '';
+            inputSku.disabled = false;
+
+            const inputSatuan = document.getElementById('input-satuan');
+            inputSatuan.disabled = false;
+            inputSatuan.value = '';
+
+            const dropdownBox = document.getElementById('dropdown-kategori-container');
+            dropdownBox.style.opacity = '1';
+            document.getElementById('input-kategori-id').dataset.disabled = "false";
+
+            document.getElementById('input-nama').value = '';
+            document.getElementById('input-harga').value = '';
+            document.getElementById('input-image').value = '';
+            document.getElementById('preview-container').style.display = 'none';
+
+            await loadCustomDropdownKategori();
+            document.getElementById('modal-barang').style.display = 'flex';
+        }
+
+        window.persiapanEdit = async function(sku, nama, kategoriId, satuan, harga, imageUrl) {
+            const storeId = await getActiveStoreId();
+            const { data: cekTransaksi, error } = await supabase
+                .from('transaction_items')
+                .select('sku_id')
+                .eq('store_id', storeId)
+                .eq('sku_id', sku)
+                .limit(1);
+
+            let sudahTerpakai = false;
+            if (!error && cekTransaksi && cekTransaksi.length > 0) {
+                sudahTerpakai = true;
+            }
+
+            document.getElementById('modal-title').innerText = 'Edit Data Barang';
+            document.getElementById('edit-sku').value = sku;
+            document.getElementById('status-terpakai').value = sudahTerpakai ? 'true' : 'false';
+            document.getElementById('old-image-url').value = imageUrl;
+            base64ImageString = '';
+
+            const inputSku = document.getElementById('input-sku');
+            inputSku.value = sku;
+            inputSku.disabled = true;
+
+            const inputSatuan = document.getElementById('input-satuan');
+            inputSatuan.value = satuan;
+
+            const dropdownBox = document.getElementById('dropdown-kategori-container');
+            
+            if (sudahTerpakai) {
+                inputSatuan.disabled = true;
+                dropdownBox.style.opacity = '0.6';
+                document.getElementById('input-kategori-id').dataset.disabled = "true";
+                showToast('Barang sudah masuk transaksi: SKU, Satuan & Kategori dikunci.', 'error');
+            } else {
+                inputSatuan.disabled = false;
+                dropdownBox.style.opacity = '1';
+                document.getElementById('input-kategori-id').dataset.disabled = "false";
+            }
+
+            document.getElementById('input-nama').value = nama;
+            document.getElementById('input-harga').value = harga;
+            document.getElementById('input-image').value = '';
+
+            const previewContainer = document.getElementById('preview-container');
+            const imgPreview = document.getElementById('img-preview');
+            if (imageUrl) {
+                imgPreview.src = imageUrl;
+                previewContainer.style.display = 'block';
+            } else {
+                previewContainer.style.display = 'none';
+            }
+
+            await loadCustomDropdownKategori(kategoriId);
+            document.getElementById('modal-barang').style.display = 'flex';
+        }
+
+        window.tutupModal = function() {
+            document.getElementById('modal-barang').style.display = 'none';
+        }
+
+        window.simpanBarang = async function() {
+            const isEdit = document.getElementById('edit-sku').value !== '';
+            const sku_id = document.getElementById('input-sku').value.trim();
+            const nama_barang = document.getElementById('input-nama').value.trim();
+            const kategori_id = document.getElementById('input-kategori-id').value;
+            const satuan = document.getElementById('input-satuan').value.trim();
+            const harga_jual = parseFloat(document.getElementById('input-harga').value);
+            const sudahTerpakai = document.getElementById('status-terpakai').value === 'true';
+            
+            const storeId = await getActiveStoreId();
+            let imageUrl = base64ImageString ? base64ImageString : document.getElementById('old-image-url').value;
+
+            if (!sku_id || !nama_barang || !kategori_id || !satuan || isNaN(harga_jual)) {
+                showToast('Semua kolom wajib diisi dengan benar!', 'error');
+                return;
+            }
+
+            const btnSimpan = document.getElementById('btn-simpan');
+            btnSimpan.innerText = 'Menyimpan...';
+            btnSimpan.disabled = true;
+
+            if (isEdit) {
+                let updateData = { nama_barang, harga_jual, image_url: imageUrl };
+                
+                if (!sudahTerpakai) {
+                    updateData.kategori_id = kategori_id;
+                    updateData.satuan = satuan;
+                }
+
+                const { error } = await supabase
+                    .from('products')
+                    .update(updateData)
+                    .eq('store_id', storeId)
+                    .eq('sku_id', sku_id);
+
+                if (error) {
+                    showToast('Gagal update database: ' + error.message, 'error');
+                } else {
+                    showToast('Barang berhasil diperbarui!');
+                    tutupModal();
+                    loadBarang();
+                }
+            } else {
+                // Validasi duplikat SKU khusus dalam toko yang sama (Beda toko aman)
+                const { data: existingSku } = await supabase
+                    .from('products')
+                    .select('sku_id')
+                    .eq('store_id', storeId)
+                    .eq('sku_id', sku_id)
+                    .maybeSingle();
+
+                if (existingSku) {
+                    showToast('Kode SKU tersebut sudah terdaftar di toko Anda!', 'error');
+                    btnSimpan.innerText = 'Simpan';
+                    btnSimpan.disabled = false;
+                    return;
+                }
+
+                const { error } = await supabase
+                    .from('products')
+                    .insert([{ sku_id, nama_barang, kategori_id, satuan, harga_jual, image_url: imageUrl, store_id: storeId }]);
+
+                if (error) {
+                    showToast('Gagal menambah barang: ' + error.message, 'error');
+                } else {
+                    showToast('Barang berhasil ditambahkan!');
+                    tutupModal();
+                    loadBarang();
+                }
+            }
+
+            btnSimpan.innerText = 'Simpan';
+            btnSimpan.disabled = false;
+        }
+
+        window.bukaModalHapus = async function(sku, nama) {
+            const storeId = await getActiveStoreId();
+            const { data: cekTransaksi, error } = await supabase
+                .from('transaction_items')
+                .select('sku_id')
+                .eq('store_id', storeId)
+                .eq('sku_id', sku)
+                .limit(1);
+
+            if (!error && cekTransaksi && cekTransaksi.length > 0) {
+                showToast(`Gagal! Barang "${nama}" sudah pernah digunakan dalam transaksi penjualan.`, 'error');
+                return;
+            }
+
+            document.getElementById('delete-sku').value = sku;
+            document.getElementById('konfirmasi-pesan').innerHTML = `Apakah Anda yakin ingin menghapus barang <strong>"${nama}"</strong>?`;
+            document.getElementById('modal-konfirmasi').style.display = 'flex';
+        }
+
+        window.tutupModalHapus = function() {
+            document.getElementById('modal-konfirmasi').style.display = 'none';
+        }
+
+        window.eksekusiHapus = async function() {
+            const sku = document.getElementById('delete-sku').value;
+            const storeId = await getActiveStoreId();
+            tutupModalHapus();
+
+            const { error } = await supabase.from('products').delete().eq('store_id', storeId).eq('sku_id', sku);
+
+            if (error) {
+                showToast('Gagal menghapus barang: ' + error.message, 'error');
+            } else {
+                showToast('Barang berhasil dihapus.');
+                loadBarang();
+            }
+        }
+
+        loadBarang();
+    </script>
+</body>
+</html>

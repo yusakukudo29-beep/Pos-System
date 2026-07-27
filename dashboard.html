@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - POS System</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .dashboard-container {
+            padding: 24px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .filter-card {
+            background: var(--surface);
+            padding: 20px 24px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+        }
+
+        .filter-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* --- STYLING CUSTOM DROPDOWN (TAHUN & BULAN) --- */
+        .custom-dropdown-container {
+            position: relative;
+            width: 160px;
+            user-select: none;
+        }
+
+        .custom-dropdown-header {
+            padding: 9px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: border-color 0.2s ease;
+        }
+
+        .custom-dropdown-header:hover {
+            border-color: var(--primary);
+        }
+
+        .custom-dropdown-list {
+            position: absolute;
+            top: 110%;
+            right: 0;
+            width: 100%;
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            z-index: 999;
+            max-height: 220px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .custom-dropdown-item {
+            padding: 10px 14px;
+            color: var(--text-main);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .custom-dropdown-item:hover {
+            background-color: var(--primary);
+            color: #ffffff;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .stat-label { font-size: 0.8rem; text-transform: uppercase; font-weight: 600; color: var(--text-muted); }
+        .stat-value { font-size: 1.5rem; font-weight: bold; color: var(--text-main); }
+        .stat-value.green { color: #10b981; }
+        .stat-value.primary { color: var(--primary); }
+
+        .recent-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .recent-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .recent-table th { text-align: left; padding: 10px 12px; background: var(--bg-main); color: var(--text-muted); border-bottom: 1px solid var(--border); font-size: 0.75rem; text-transform: uppercase; }
+        .recent-table td { padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-main); vertical-align: middle; }
+
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: var(--surface); color: var(--text-main); border: 1px solid var(--border); padding: 12px 18px; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); font-size: 0.9rem; display: flex; align-items: center; gap: 10px; animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards; }
+        .toast.success { border-left: 4px solid #10b981; }
+        .toast.error { border-left: 4px solid #ef4444; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; transform: translateY(10px); } }
+    </style>
+</head>
+<body>
+    <main style="padding-top: 20px; box-sizing: border-box;">
+        <div class="dashboard-container">
+            
+            <!-- Filter Card -->
+            <div class="filter-card">
+                
+                <!-- Baris Tahun (Custom Dropdown) -->
+                <div class="filter-row" style="border-bottom: 1px solid var(--border); padding-bottom: 14px;">
+                    <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        <span>📅</span> Pilihlah Tahun:
+                    </div>
+                    
+                    <div class="custom-dropdown-container">
+                        <div class="custom-dropdown-header" onclick="toggleDropdown('tahun')">
+                            <span id="selected-tahun-text">Memuat...</span>
+                            <span style="font-size: 0.75rem;">▼</span>
+                        </div>
+                        <div class="custom-dropdown-list" id="tahun-dropdown-list">
+                            <!-- Diisi otomatis via JavaScript -->
+                        </div>
+                        <input type="hidden" id="active-tahun">
+                    </div>
+                </div>
+
+                <!-- Baris Bulan (Custom Dropdown) -->
+                <div class="filter-row">
+                    <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        <span>🗓️</span> Pilihlah Bulan:
+                    </div>
+                    
+                    <div class="custom-dropdown-container">
+                        <div class="custom-dropdown-header" onclick="toggleDropdown('bulan')">
+                            <span id="selected-bulan-text">Juli</span>
+                            <span style="font-size: 0.75rem;">▼</span>
+                        </div>
+                        <div class="custom-dropdown-list" id="bulan-dropdown-list">
+                            <div class="custom-dropdown-item" onclick="selectBulanItem('01', 'Januari')">Januari</div>
+                            <div class="custom-dropdown-item" onclick="selectBulanItem('02', 'Februari')">Februari</div>
+                            <div class="custom-dropdown-item" onclick="selectBulanItem('03', 'Maret')">Maret</div>
+                            <div class="custom-dropdown-item" onclick="selectBulanItem('04', 'April')">April</div>
+                            <div class="custom-dropdown-item" onclick="selectBulanItem('05', 'Mei')">Mei</div>
+                            <div class="custom-dropdown-item" onclick="selectBulanItem('06', 'Juni')">Juni</div>
+                            <div class="custom-dropdown-item" onclick="selectBulanItem('07', 'Juli')">Juli</div>
+                            <div class="custom-dropdown-item" onclick="selectBulanItem('08', 'Agustus')">Agustus</div>
+                            <div class="custom-dropdown-item" onclick="selectBulanItem('09', 'September')">September</div>
+                            <div class="custom-dropdown-item" onclick="selectBulanItem('10', 'Oktober')">Oktober</div>
+                            <div class="custom-dropdown-item" onclick="selectBulanItem('11', 'November')">November</div>
+                            <div class="custom-dropdown-item" onclick="selectBulanItem('12', 'Desember')">Desember</div>
+                        </div>
+                        <input type="hidden" id="active-bulan" value="07">
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Kartu Statistik -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-label">Total Omset Periode Ini</span>
+                    <span class="stat-value green" id="card-total-omset">Rp 0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Jumlah Transaksi</span>
+                    <span class="stat-value primary" id="card-total-transaksi">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Rata-rata Transaksi</span>
+                    <span class="stat-value" id="card-rata-rata" style="color: #6366f1;">Rp 0</span>
+                </div>
+            </div>
+
+            <!-- Tabel Transaksi Terbaru -->
+            <div class="recent-section">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="font-size: 1.05rem; font-weight: bold; color: var(--text-main);">Riwayat Transaksi Periode Ini</h2>
+                    <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="loadDashboardData()">🔄 Refresh</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="recent-table">
+                        <thead>
+                            <tr>
+                                <th>No. Nota</th>
+                                <th>Tanggal & Waktu</th>
+                                <th>Subtotal</th>
+                                <th>Grand Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-trx-tbody">
+                            <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Memuat data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="toast-container"></div>
+
+    <script type="module">
+        import { supabase, getActiveStoreId } from './App.js';
+
+        const namaBulanMap = {
+            '01': 'Januari', '02': 'Februari', '03': 'Maret', '04': 'April',
+            '05': 'Mei', '06': 'Juni', '07': 'Juli', '08': 'Agustus',
+            '09': 'September', '10': 'Oktober', '11': 'November', '12': 'Desember'
+        };
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3000);
+        }
+
+        // Inisialisasi Filter Otomatis
+        async function initFilters() {
+            const storeId = await getActiveStoreId();
+            const now = new Date();
+            const currentYear = String(now.getFullYear());
+            const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+
+            let availableYears = [currentYear];
+            try {
+                const { data, error } = await supabase
+                    .from('transactions')
+                    .select('created_at')
+                    .eq('store_id', storeId);
+
+                if (!error && data && data.length > 0) {
+                    const yearsSet = new Set();
+                    data.forEach(trx => {
+                        if (trx.created_at) {
+                            const y = new Date(trx.created_at).getFullYear();
+                            if (!isNaN(y)) yearsSet.add(String(y));
+                        }
+                    });
+                    yearsSet.add(currentYear);
+                    availableYears = Array.from(yearsSet).sort().reverse();
+                }
+            } catch (e) {
+                console.warn("Gagal scan tahun:", e);
+            }
+
+            // Render opsi list tahun kustom
+            const listContainer = document.getElementById('tahun-dropdown-list');
+            listContainer.innerHTML = '';
+            availableYears.forEach((y, index) => {
+                const isCurrent = (y === currentYear || (index === 0 && !availableYears.includes(currentYear)));
+                if (isCurrent) {
+                    document.getElementById('active-tahun').value = y;
+                    document.getElementById('selected-tahun-text').innerText = y;
+                }
+                listContainer.innerHTML += `
+                    <div class="custom-dropdown-item" onclick="selectTahunItem('${y}')">${y}</div>
+                `;
+            });
+
+            // Set bulan aktif default
+            document.getElementById('active-bulan').value = currentMonth;
+            document.getElementById('selected-bulan-text').innerText = namaBulanMap[currentMonth];
+
+            loadDashboardData();
+        }
+
+        window.toggleDropdown = function(type) {
+            const tahunList = document.getElementById('tahun-dropdown-list');
+            const bulanList = document.getElementById('bulan-dropdown-list');
+
+            if (type === 'tahun') {
+                tahunList.style.display = tahunList.style.display === 'block' ? 'none' : 'block';
+                bulanList.style.display = 'none';
+            } else {
+                bulanList.style.display = bulanList.style.display === 'block' ? 'none' : 'block';
+                tahunList.style.display = 'none';
+            }
+        }
+
+        window.selectTahunItem = function(yearVal) {
+            document.getElementById('active-tahun').value = yearVal;
+            document.getElementById('selected-tahun-text').innerText = yearVal;
+            document.getElementById('tahun-dropdown-list').style.display = 'none';
+            loadDashboardData();
+        }
+
+        window.selectBulanItem = function(bulanVal, bulanName) {
+            document.getElementById('active-bulan').value = bulanVal;
+            document.getElementById('selected-bulan-text').innerText = bulanName;
+            document.getElementById('bulan-dropdown-list').style.display = 'none';
+            loadDashboardData();
+        }
+
+        // Tutup dropdown jika klik di luar
+        window.addEventListener('click', function(e) {
+            if (!e.target.closest('.custom-dropdown-container')) {
+                document.getElementById('tahun-dropdown-list').style.display = 'none';
+                document.getElementById('bulan-dropdown-list').style.display = 'none';
+            }
+        });
+
+        window.loadDashboardData = async function() {
+            const storeId = await getActiveStoreId();
+            const bulan = document.getElementById('active-bulan').value;
+            const tahun = document.getElementById('active-tahun').value;
+
+            if (!bulan || !tahun) return;
+
+            const startDate = `${tahun}-${bulan}-01T00:00:00`;
+            const lastDay = new Date(parseInt(tahun), parseInt(bulan), 0).getDate();
+            const endDate = `${tahun}-${bulan}-${lastDay}T23:59:59`;
+
+            const { data: transactions, error } = await supabase
+                .from('transactions')
+                .select('*')
+                .eq('store_id', storeId)
+                .gte('created_at', startDate)
+                .lte('created_at', endDate)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                showToast('Gagal memuat data dashboard: ' + error.message, 'error');
+                return;
+            }
+
+            let totalOmset = 0;
+            let totalTransaksi = transactions.length;
+
+            transactions.forEach(trx => {
+                totalOmset += Number(trx.grand_total || 0);
+            });
+
+            let rataRata = totalTransaksi > 0 ? totalOmset / totalTransaksi : 0;
+
+            document.getElementById('card-total-omset').innerText = 'Rp ' + totalOmset.toLocaleString('id-ID');
+            document.getElementById('card-total-transaksi').innerText = totalTransaksi.toLocaleString('id-ID');
+            document.getElementById('card-rata-rata').innerText = 'Rp ' + Math.round(rataRata).toLocaleString('id-ID');
+
+            const tbody = document.getElementById('recent-trx-tbody');
+            if (!transactions || transactions.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Belum ada transaksi pada periode ini.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            transactions.slice(0, 10).forEach(trx => {
+                let tgl = new Date(trx.created_at).toLocaleString('id-ID');
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${trx.no_nota}</strong></td>
+                        <td>${tgl}</td>
+                        <td>Rp ${Number(trx.subtotal).toLocaleString('id-ID')}</td>
+                        <td><strong style="color: #10b981;">Rp ${Number(trx.grand_total).toLocaleString('id-ID')}</strong></td>
+                    </tr>
+                `;
+            });
+        }
+
+        initFilters();
+    </script>
+</body>
+</html>
