@@ -268,7 +268,23 @@
             setTimeout(() => { toast.remove(); }, 3000);
         }
 
+        // --- PENGAMAN HAK AKSES DASHBOARD ---
+        async function checkDashboardAccess() {
+            const userRole = (localStorage.getItem('user_role') || '').toLowerCase();
+            if (userRole.includes('kasir') && !userRole.includes('admin') && !userRole.includes('owner') && !userRole.includes('super')) {
+                showToast('Akses ditolak! Kasir tidak memiliki izin membuka Dashboard.', 'error');
+                setTimeout(() => {
+                    window.location.href = 'penjualan.html';
+                }, 800);
+                return false;
+            }
+            return true;
+        }
+
         async function initFilters() {
+            const hasAccess = await checkDashboardAccess();
+            if (!hasAccess) return;
+
             const storeId = await getActiveStoreId();
             const now = new Date();
             const currentYear = String(now.getFullYear());
@@ -383,7 +399,6 @@
             const storeFilterInput = document.getElementById('active-store-filter');
             let selectedStore = storeFilterInput ? storeFilterInput.value : 'ALL_ADMIN';
             
-            // Jika dropdown belum siap, fallback ke getActiveStoreId()
             if (!storeFilterInput) {
                 selectedStore = await getActiveStoreId();
             }
@@ -405,7 +420,6 @@
                 .lte('created_at', endDate)
                 .order('created_at', { ascending: false });
 
-            // PERBAIKAN: Hanya terapkan filter store_id jika BUKAN All Stores
             if (selectedStore && selectedStore !== 'ALL_ADMIN') {
                 query = query.eq('store_id', selectedStore);
             }

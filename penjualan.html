@@ -48,6 +48,7 @@
         .cart-footer { padding: 14px; border-top: 1px solid var(--border); background: var(--bg-main); }
         .summary-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.85rem; color: var(--text-muted); }
         .input-inline { width: 55px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-main); text-align: right; font-size: 0.85rem; outline: none; }
+        .input-biaya { width: 110px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-main); text-align: right; font-size: 0.85rem; outline: none; }
         .total-container { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; margin-bottom: 12px; border-top: 1px dashed var(--border); padding-top: 8px; }
         .total-label { font-size: 1rem; font-weight: bold; color: var(--text-main); }
         .total-amount { font-size: 1.25rem; font-weight: bold; color: #10b981; }
@@ -102,25 +103,20 @@
             .menu-card, .cart-card, .riwayat-container { height: auto !important; min-height: 450px; max-height: none !important; }
             .product-grid { grid-template-columns: repeat(2, 1fr) !important; max-height: 350px; }
         }
-        /* ==========================================================
-       PERBAIKAN TAMPILAN RESPONSIF & PADDING BAWAH LAYAR HP
-       ========================================================== */
-    @media screen and (max-width: 768px) {
-        body {
-            padding-bottom: 140px !important;
-            box-sizing: border-box;
-        }
-        
-        /* Memberikan ruang khusus aman pada card keranjang di HP */
-        .cart-card {
-            margin-bottom: 30px;
-        }
 
-        .cart-footer {
-            position: relative;
-            padding-bottom: 24px;
+        @media screen and (max-width: 768px) {
+            body {
+                padding-bottom: 140px !important;
+                box-sizing: border-box;
+            }
+            .cart-card {
+                margin-bottom: 30px;
+            }
+            .cart-footer {
+                position: relative;
+                padding-bottom: 24px;
+            }
         }
-    }
     </style>
 </head>
 <body>
@@ -181,10 +177,25 @@
                     <input type="text" id="input-nama-pelanggan" placeholder="👤 Nama Pelanggan / No. Meja (Wajib)" style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-main); font-size: 0.9rem; outline: none; box-sizing: border-box;">
                     
                     <div class="summary-row"><span>Subtotal</span><strong id="summary-subtotal">Rp 0</strong></div>
+                    
+                    <!-- BIAYA TAMBAHAN (PERSEN & NOMINAL OTOMATIS) -->
                     <div class="summary-row" style="align-items: center;">
-                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" id="check-ppn" onchange="hitungKalkulasi()"> PPN (%)</label>
-                        <div id="ppn-input-wrapper" style="display: none; align-items: center; gap: 4px;"><input type="number" id="input-ppn-persen" value="11" class="input-inline" oninput="hitungKalkulasi()">%</div>
-                        <span id="summary-ppn-nominal">Rp 0</span>
+                        <input type="text" id="input-nama-biaya" placeholder="Keterangan Biaya..." value="Biaya Lain" style="width: 100px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-main); font-size: 0.8rem; outline: none;">
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <input type="number" id="input-persen-biaya" placeholder="0" value="0" class="input-inline" oninput="hitungBiayaDariPersen()">%
+                            <input type="number" id="input-nominal-biaya" placeholder="0" value="0" class="input-biaya" oninput="hitungPersenDariNominal()" style="width: 95px;">
+                        </div>
+                    </div>
+
+                    <!-- PPN (%) -->
+                    <div class="summary-row" style="align-items: center;">
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="checkbox" id="check-ppn" onchange="togglePpnInput()"> PPN (%)
+                        </label>
+                        <div id="ppn-input-wrapper" style="display: none; align-items: center; gap: 4px;">
+                            <input type="number" id="input-ppn-persen" value="11" class="input-inline" oninput="hitungKalkulasi()">%
+                        </div>
+                        <strong id="summary-ppn-nominal">Rp 0</strong>
                     </div>
                     
                     <div class="total-container">
@@ -254,9 +265,9 @@
                     <label>Uang Diterima (Rp)</label>
                     <div class="quick-cash-container">
                         <button type="button" class="btn-quick-cash" onclick="setUangDiterima('pas')">Uang Pas</button>
-                        <button type="button" class="btn-quick-cash" onclick="setUangDiterima(20000)">20.000</button>
-                        <button type="button" class="btn-quick-cash" onclick="setUangDiterima(50000)">50.000</button>
-                        <button type="button" class="btn-quick-cash" onclick="setUangDiterima(100000)">100.000</button>
+                        <button type="button" class="btn-quick-cash" id="btn-quick-20k" onclick="setUangDiterima(20000)">20.000</button>
+                        <button type="button" class="btn-quick-cash" id="btn-quick-50k" onclick="setUangDiterima(50000)">50.000</button>
+                        <button type="button" class="btn-quick-cash" id="btn-quick-100k" onclick="setUangDiterima(100000)">100.000</button>
                     </div>
                     <input type="number" id="pay-uang-diterima" placeholder="Atau ketik manual..." oninput="hitungKembalian()">
                 </div>
@@ -301,7 +312,7 @@
         </div>
     </div>
 
-    <!-- MODAL KONFIRMASI BATAL / UMUM (PENGGANTI ALERT/CONFIRM WEB) -->
+    <!-- MODAL KONFIRMASI BATAL / UMUM -->
     <div id="modal-konfirmasi" class="modal">
         <div class="modal-content" style="max-width: 360px; text-align: center; padding: 28px;">
             <div style="font-size: 2.8rem; margin-bottom: 10px;" id="konfirmasi-icon">⚠️</div>
@@ -339,9 +350,11 @@
         <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
         <div id="p-items"></div>
         <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
-        <div style="display: flex; justify-content: space-between;"><span>Total:</span> <span id="p-grand"></span></div>
+        <div id="p-biaya-row" style="display: flex; justify-content: space-between; display: none;"><span id="p-namabiaya">Biaya:</span> <span id="p-nominalbiaya"></span></div>
+        <div id="p-ppn-row" style="display: flex; justify-content: space-between; display: none;"><span>PPN:</span> <span id="p-nominalppn"></span></div>
+        <div style="display: flex; justify-content: space-between; font-weight: bold;"><span>Total:</span> <span id="p-grand"></span></div>
         <div style="display: flex; justify-content: space-between;"><span>Bayar (<span id="p-metode"></span>):</span> <span id="p-bayar"></span></div>
-        <div style="display: flex; justify-content: space-between;"><span>Kembali:</span> <span id="p-kembali"></span></div>
+        <div style="display: flex; justify-content: space-between;"><span id="p-label-kembali">Kembali:</span> <span id="p-kembali"></span></div>
         <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
         <div style="text-align: center; font-size: 10px;">Terima Kasih!</div>
     </div>
@@ -366,7 +379,7 @@
     
     let pendingPinAction = null; 
     let pendingPinData = null;
-    let confirmCallback = null; // Callback untuk modal konfirmasi kustom
+    let confirmCallback = null;
 
     function showToast(message, type = 'success') {
         const container = document.getElementById('toast-container');
@@ -377,7 +390,6 @@
         setTimeout(() => { toast.remove(); }, 3000);
     }
 
-    // Fungsi Modal Konfirmasi Kustom (Pengganti confirm() web)
     window.tampilkanKonfirmasi = function(pesan, callback, judul = "Konfirmasi Pembatalan", icon = "⚠️") {
         document.getElementById('konfirmasi-title').innerText = judul;
         document.getElementById('konfirmasi-pesan').innerText = pesan;
@@ -414,6 +426,11 @@
             activeOpenBillId = null;
             keranjang = [];
             document.getElementById('input-nama-pelanggan').value = '';
+            document.getElementById('input-nama-biaya').value = 'Biaya Lain';
+            document.getElementById('input-persen-biaya').value = '0';
+            document.getElementById('input-nominal-biaya').value = '0';
+            document.getElementById('check-ppn').checked = false;
+            document.getElementById('ppn-input-wrapper').style.display = 'none';
             document.getElementById('badge-open-bill').style.display = 'none';
             document.getElementById('btn-batal-edit').style.display = 'none';
         }
@@ -442,7 +459,12 @@
         renderKeranjang();
     }
 
-    // Menggunakan Konfirmasi Kustom untuk Batalkan Edit Open Bill
+    window.togglePpnInput = function() {
+        const isChecked = document.getElementById('check-ppn').checked;
+        document.getElementById('ppn-input-wrapper').style.display = isChecked ? 'flex' : 'none';
+        hitungKalkulasi();
+    }
+
     window.batalOpenBill = function() {
         tampilkanKonfirmasi(
             "Batalkan pengeditan tagihan ini dan reset keranjang kasir?",
@@ -601,12 +623,27 @@
 
     window.hitungKalkulasi = function() {
         let subtotal = keranjang.reduce((sum, i) => sum + i.subtotal, 0);
-        let ppn = document.getElementById('check-ppn').checked ? subtotal * (document.getElementById('input-ppn-persen').value / 100) : 0;
-        let grand = subtotal + ppn;
+        
+        // Ambil nilai persen dan nominal biaya tambahan
+        let biayaPersen = parseFloat(document.getElementById('input-persen-biaya').value) || 0;
+        let biayaTambahan = parseFloat(document.getElementById('input-nominal-biaya').value) || 0;
+        
+        let ppn = 0;
+        let isPpnChecked = document.getElementById('check-ppn').checked;
+        let ppnPersen = parseFloat(document.getElementById('input-ppn-persen').value) || 0;
+        
+        // PPN HANYA DIHITUNG DARI SUBTOTAL BARANG SAJA
+        if (isPpnChecked) {
+            ppn = subtotal * (ppnPersen / 100);
+        }
+
+        let grand = subtotal + biayaTambahan + ppn;
+
         document.getElementById('summary-subtotal').innerText = `Rp ${subtotal.toLocaleString('id-ID')}`;
-        document.getElementById('summary-ppn-nominal').innerText = `Rp ${ppn.toLocaleString('id-ID')}`;
-        document.getElementById('summary-grand-total').innerText = `Rp ${grand.toLocaleString('id-ID')}`;
-        return { subtotal, ppn, grand };
+        document.getElementById('summary-ppn-nominal').innerText = `Rp ${Math.round(ppn).toLocaleString('id-ID')}`;
+        document.getElementById('summary-grand-total').innerText = `Rp ${Math.round(grand).toLocaleString('id-ID')}`;
+        
+        return { subtotal, biayaPersen, biayaTambahan, ppn, ppnPersen, grand };
     }
 
     window.persiapanSimpan = function(status) {
@@ -616,15 +653,47 @@
         
         if (status === 'Lunas') {
             const calc = hitungKalkulasi();
-            document.getElementById('pay-total-display').innerText = `Rp ${calc.grand.toLocaleString('id-ID')}`;
+            const totalTagihan = Math.round(calc.grand);
+            document.getElementById('pay-total-display').innerText = `Rp ${totalTagihan.toLocaleString('id-ID')}`;
             document.getElementById('pay-metode').value = '';
             document.getElementById('pay-uang-diterima').value = '';
             document.getElementById('pay-kembalian').value = '';
             document.getElementById('area-tunai').style.display = 'none';
+
+            // --- FILTER PINTASAN UANG BERDASARKAN TOTAL TAGIHAN ---
+            const btn20k = document.getElementById('btn-quick-20k');
+            const btn50k = document.getElementById('btn-quick-50k');
+            const btn100k = document.getElementById('btn-quick-100k');
+
+            if (btn20k) btn20k.style.display = totalTagihan > 20000 ? 'none' : 'inline-block';
+            if (btn50k) btn50k.style.display = totalTagihan > 50000 ? 'none' : 'inline-block';
+            if (btn100k) btn100k.style.display = totalTagihan > 100000 ? 'none' : 'inline-block';
+            // -----------------------------------------------------
+
             document.getElementById('modal-pembayaran').style.display = 'flex';
         } else {
             eksekusiSimpanKeDB('Belum Bayar', null, 0, 0);
         }
+    }
+
+    // Ketika kolom PERSEN biaya diketik, hitung nominal rupiahnya otomatis
+    window.hitungBiayaDariPersen = function() {
+        let subtotal = keranjang.reduce((sum, i) => sum + i.subtotal, 0);
+        let persen = parseFloat(document.getElementById('input-persen-biaya').value) || 0;
+        let nominal = subtotal * (persen / 100);
+        
+        document.getElementById('input-nominal-biaya').value = Math.round(nominal);
+        hitungKalkulasi();
+    }
+
+    // Ketika kolom NOMINAL rupiah biaya diketik langsung, hitung persentasenya otomatis
+    window.hitungPersenDariNominal = function() {
+        let subtotal = keranjang.reduce((sum, i) => sum + i.subtotal, 0);
+        let nominal = parseFloat(document.getElementById('input-nominal-biaya').value) || 0;
+        
+        let persen = subtotal > 0 ? (nominal / subtotal) * 100 : 0;
+        document.getElementById('input-persen-biaya').value = parseFloat(persen.toFixed(2));
+        hitungKalkulasi();
     }
 
     window.cekTipePembayaran = function() {
@@ -641,13 +710,13 @@
         const tagihan = hitungKalkulasi().grand;
         const bayar = parseFloat(document.getElementById('pay-uang-diterima').value) || 0;
         let kembali = bayar - tagihan;
-        document.getElementById('pay-kembalian').value = kembali > 0 ? kembali : 0;
+        document.getElementById('pay-kembalian').value = kembali > 0 ? Math.round(kembali) : 0;
     }
 
     window.setUangDiterima = function(nominal) {
         const tagihan = hitungKalkulasi().grand;
         const inputUang = document.getElementById('pay-uang-diterima');
-        if (nominal === 'pas') inputUang.value = tagihan; 
+        if (nominal === 'pas') inputUang.value = Math.round(tagihan); 
         else inputUang.value = nominal; 
         hitungKembalian(); 
     }
@@ -670,15 +739,28 @@
         eksekusiSimpanKeDB('Lunas', sel.value, bayar, kembali);
     }
 
+    // --- SESUAIKAN DENGAN NAMA KOLOM DI SUPABASE ---
     window.eksekusiSimpanKeDB = async function(statusTrx, metode, uangBayar, uangKembali) {
         const storeId = await getActiveStoreId();
         const calc = hitungKalkulasi();
         const namaPelanggan = document.getElementById('input-nama-pelanggan').value.trim();
+        const namaBiaya = document.getElementById('input-nama-biaya').value.trim() || 'Biaya Lain';
 
         const dataHeader = {
-            store_id: storeId, no_nota: currentNoNota, nama_pelanggan: namaPelanggan,
-            subtotal: calc.subtotal, ppn_nominal: calc.ppn, grand_total: calc.grand,
-            status_transaksi: statusTrx, metode_pembayaran: metode, uang_bayar: uangBayar, uang_kembali: uangKembali
+            store_id: storeId, 
+            no_nota: currentNoNota, 
+            nama_pelanggan: namaPelanggan,
+            subtotal: calc.subtotal, 
+            biaya_lain_nama: namaBiaya, 
+            biaya_lain_nilai: calc.biayaPersen,
+            biaya_lain_nominal: calc.biayaTambahan,
+            ppn_persen: calc.ppnPersen, 
+            ppn_nominal: calc.ppn, 
+            grand_total: calc.grand,
+            status_transaksi: statusTrx, 
+            metode_pembayaran: metode, 
+            uang_bayar: uangBayar, 
+            uang_kembali: uangKembali
         };
 
         let trxIdToUse = activeOpenBillId;
@@ -701,7 +783,7 @@
 
         showToast(`Pesanan ${statusTrx === 'Lunas' ? 'Berhasil Dibayar' : 'Tersimpan'}!`);
         if (statusTrx === 'Lunas') {
-            cetakStrukThermal(currentNoNota, namaPelanggan, metode, uangBayar, uangKembali, keranjang, calc.grand);
+            cetakStrukThermal(currentNoNota, namaPelanggan, namaBiaya, calc.biayaTambahan, calc.ppn, metode, uangBayar, uangKembali, keranjang, calc.grand);
         }
         initKasir(true); 
     }
@@ -711,7 +793,7 @@
         const tbody = document.getElementById('riwayat-tbody');
         tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">Memuat...</td></tr>`;
 
-        const { data, error } = await supabase.from('transactions').select('*').eq('store_id', storeId).order('created_at', { ascending: false });
+        const { data, error } = await supabase.from('transactions').select('*').eq('store_id', storeId).order('no_nota', { ascending: false });
         if (error || !data || data.length === 0) {
             listRiwayatCache = [];
             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Belum ada riwayat.</td></tr>`;
@@ -782,6 +864,7 @@
         });
     }
 
+    // --- SESUAIKAN LOAD DRAFT DENGAN KOLOM SUPABASE ---
     window.bukaKeKasir = async function(trxId) {
         const { data: trx } = await supabase.from('transactions').select('*').eq('id', trxId).single();
         const { data: items } = await supabase.from('transaction_items').select('*').eq('transaction_id', trxId);
@@ -790,7 +873,11 @@
             activeOpenBillId = trx.id;
             currentNoNota = trx.no_nota;
             document.getElementById('info-nota').innerText = currentNoNota;
-            document.getElementById('input-nama-pelanggan').value = trx.nama_pelanggan;
+            document.getElementById('input-nama-pelanggan').value = trx.nama_pelanggan || '';
+            document.getElementById('input-nama-biaya').value = trx.biaya_lain_nama || 'Biaya Lain';
+            document.getElementById('input-persen-biaya').value = trx.biaya_lain_nilai || 0;
+            document.getElementById('input-nominal-biaya').value = trx.biaya_lain_nominal || 0;
+            
             document.getElementById('badge-open-bill').style.display = 'inline-block';
             document.getElementById('btn-batal-edit').style.display = 'inline-block';
             
@@ -799,7 +886,15 @@
                 qty: i.qty, subtotal: i.subtotal_item, is_new: false
             }));
             
-            document.getElementById('check-ppn').checked = (trx.ppn_nominal > 0);
+            if (trx.ppn_nominal && trx.ppn_nominal > 0) {
+                document.getElementById('check-ppn').checked = true;
+                document.getElementById('ppn-input-wrapper').style.display = 'flex';
+                document.getElementById('input-ppn-persen').value = trx.ppn_persen || 11;
+            } else {
+                document.getElementById('check-ppn').checked = false;
+                document.getElementById('ppn-input-wrapper').style.display = 'none';
+            }
+
             renderKeranjang();
             switchTab('kasir');
         }
@@ -846,6 +941,7 @@
         });
     }
 
+    // --- SESUAIKAN PARSIAL VOID DENGAN KOLOM SUPABASE ---
     window.prosesPartialVoidSubmit = async function() {
         const trxId = document.getElementById('void-trx-id').value;
         const rows = document.querySelectorAll('#table-partial-items tbody tr');
@@ -876,13 +972,20 @@
         if (!adaYangDicentang) { showToast('Pilih minimal 1 barang yang ingin di-void/refund!', 'error'); return; }
 
         const { data: sisaItems } = await supabase.from('transaction_items').select('*').eq('transaction_id', trxId);
+        const { data: currentTrx } = await supabase.from('transactions').select('biaya_lain_nominal, ppn_persen').eq('id', trxId).single();
         
         if (!sisaItems || sisaItems.length === 0) {
-            await supabase.from('transactions').update({ status_transaksi: 'Dibatalkan', subtotal: 0, ppn_nominal: 0, grand_total: 0 }).eq('id', trxId);
+            await supabase.from('transactions').update({ status_transaksi: 'Dibatalkan', subtotal: 0, biaya_lain_nominal: 0, ppn_nominal: 0, grand_total: 0 }).eq('id', trxId);
         } else {
             let newSubtotal = sisaItems.reduce((sum, i) => sum + i.subtotal_item, 0);
-            let newPpn = newSubtotal * 0.11;
-            let newGrand = newSubtotal + newPpn;
+            let biayaTambahan = currentTrx ? Number(currentTrx.biaya_lain_nominal || 0) : 0;
+            let ppnPersen = currentTrx ? Number(currentTrx.ppn_persen || 11) : 11;
+            
+            // PPN HANYA DIHITUNG DARI SISA SUBTOTAL BARANG SAJA
+            let newPpn = newSubtotal * (ppnPersen / 100);
+            
+            let newGrand = newSubtotal + biayaTambahan + newPpn;
+            
             await supabase.from('transactions').update({ subtotal: newSubtotal, ppn_nominal: newPpn, grand_total: newGrand }).eq('id', trxId);
         }
 
@@ -891,15 +994,16 @@
         loadRiwayat();
     }
 
+    // --- SESUAIKAN REPRINT DENGAN KOLOM SUPABASE ---
     window.reprint = async function(trxId) {
         const { data: trx } = await supabase.from('transactions').select('*').eq('id', trxId).single();
         const { data: items } = await supabase.from('transaction_items').select('*').eq('transaction_id', trxId);
         if (trx && items) {
-            cetakStrukThermal(trx.no_nota, trx.nama_pelanggan, trx.metode_pembayaran, trx.uang_bayar, trx.uang_kembali, items, trx.grand_total);
+            cetakStrukThermal(trx.no_nota, trx.nama_pelanggan, trx.biaya_lain_nama || 'Biaya Lain', trx.biaya_lain_nominal || 0, trx.ppn_nominal || 0, trx.metode_pembayaran, trx.uang_bayar, trx.uang_kembali, items, trx.grand_total);
         }
     }
 
-    window.cetakStrukThermal = async function(nota, pelanggan, metode, bayar, kembali, items, grand) {
+    window.cetakStrukThermal = async function(nota, pelanggan, namaBiaya, nominalBiaya, nominalPpn, metode, bayar, kembali, items, grand) {
         const storeId = await getActiveStoreId();
         let namaToko = "POS SYSTEM STORE";
         let alamatToko = "";
@@ -922,7 +1026,24 @@
         document.getElementById('p-metode').innerText = metode || 'Tunai';
         document.getElementById('p-grand').innerText = 'Rp ' + Number(grand).toLocaleString('id-ID');
         document.getElementById('p-bayar').innerText = 'Rp ' + Number(bayar).toLocaleString('id-ID');
-        document.getElementById('p-kembali').innerText = 'Rp ' + Number(kembali).toLocaleString('id-ID');
+
+        // --- LOGIKA CEK REFUND / KEMBALIAN ---
+        let selisih = Number(bayar) - Number(grand);
+        const labelKembali = document.getElementById('p-label-kembali');
+        const valueKembali = document.getElementById('p-kembali');
+
+        // Pastikan teks "Dana Refund" HANYA MUNCUL jika metodenya BUKAN Tunai/Cash
+        if (metode && metode.toLowerCase() !== 'tunai' && metode.toLowerCase() !== 'cash' && selisih > 0) {
+            labelKembali.innerText = "Dana Refund:";
+            valueKembali.innerText = 'Rp ' + selisih.toLocaleString('id-ID');
+            valueKembali.style.fontWeight = 'bold';
+        } else {
+            // Untuk pembayaran CASH / Tunai normal, tetap cetak "Kembali:"
+            labelKembali.innerText = "Kembali:";
+            valueKembali.innerText = 'Rp ' + Number(kembali).toLocaleString('id-ID');
+            valueKembali.style.fontWeight = 'normal';
+        }
+        // -------------------------------------
 
         let itemHtml = '';
         items.forEach(i => {
@@ -930,6 +1051,26 @@
             itemHtml += `<div>${i.nama_barang}</div><div style="display:flex; justify-content:space-between; padding-left:10px; font-size:10px;"><span>${i.qty}x @Rp ${hargaSat.toLocaleString('id-ID')}</span> <span>Rp ${Number(i.subtotal_item || i.subtotal).toLocaleString('id-ID')}</span></div>`;
         });
         document.getElementById('p-items').innerHTML = itemHtml;
+
+        // Cetak Baris Biaya Tambahan di Struk jika ada
+        const rowBiaya = document.getElementById('p-biaya-row');
+        if (nominalBiaya > 0) {
+            document.getElementById('p-namabiaya').innerText = (namaBiaya || 'Biaya Lain') + ':';
+            document.getElementById('p-nominalbiaya').innerText = 'Rp ' + Number(nominalBiaya).toLocaleString('id-ID');
+            rowBiaya.style.display = 'flex';
+        } else {
+            rowBiaya.style.display = 'none';
+        }
+
+        // Cetak Baris PPN di Struk jika ada
+        const rowPpn = document.getElementById('p-ppn-row');
+        if (nominalPpn > 0) {
+            document.getElementById('p-nominalppn').innerText = 'Rp ' + Number(nominalPpn).toLocaleString('id-ID');
+            rowPpn.style.display = 'flex';
+        } else {
+            rowPpn.style.display = 'none';
+        }
+
         window.print();
     }
 
