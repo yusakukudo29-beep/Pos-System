@@ -102,6 +102,25 @@
             .menu-card, .cart-card, .riwayat-container { height: auto !important; min-height: 450px; max-height: none !important; }
             .product-grid { grid-template-columns: repeat(2, 1fr) !important; max-height: 350px; }
         }
+        /* ==========================================================
+       PERBAIKAN TAMPILAN RESPONSIF & PADDING BAWAH LAYAR HP
+       ========================================================== */
+    @media screen and (max-width: 768px) {
+        body {
+            padding-bottom: 140px !important;
+            box-sizing: border-box;
+        }
+        
+        /* Memberikan ruang khusus aman pada card keranjang di HP */
+        .cart-card {
+            margin-bottom: 30px;
+        }
+
+        .cart-footer {
+            position: relative;
+            padding-bottom: 24px;
+        }
+    }
     </style>
 </head>
 <body>
