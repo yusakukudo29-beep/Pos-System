@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kelola Metode Pembayaran - POS SaaS</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .action-btn {
+            background: none;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            padding: 6px 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--surface);
+        }
+        .action-btn svg { width: 16px; height: 16px; stroke-width: 2; }
+        
+        .btn-toggle { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; color: white; background-color: #3b82f6; font-size: 0.85rem;}
+        .btn-toggle.nonaktif { background-color: var(--text-muted); }
+        .btn-delete { color: #ef4444; margin-left: 6px;}
+        .btn-delete:hover { background-color: #fee2e2; border-color: #ef4444; }
+
+        .add-form { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .add-form input, .add-form select { 
+            padding: 10px; 
+            border: 1px solid var(--border); 
+            border-radius: 6px; 
+            background: var(--bg-main); 
+            color: var(--text-main); 
+            flex: 1; 
+            min-width: 200px;
+        }
+
+        /* Toast Notification Styling */
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            background: var(--surface);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 250px;
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+        }
+        .toast.success { border-left: 4px solid #10b981; }
+        .toast.error { border-left: 4px solid #ef4444; }
+
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; transform: translateY(10px); } }
+    </style>
+</head>
+<body>
+    <main>
+        <header>
+            <h1>Kelola Metode Pembayaran</h1>
+        </header>
+        <div class="content-body">
+            <div class="card">
+                <div style="margin-bottom: 16px;">
+                    <h2>Tambah Metode Pembayaran</h2>
+                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 12px;">Tambahkan metode baru khusus untuk toko Anda.</p>
+                </div>
+                
+                <!-- Form Tambah -->
+                <div class="add-form">
+                    <input type="text" id="input-nama" placeholder="Contoh: EDC BCA, ShopeePay">
+                    <select id="input-kategori">
+                        <option value="Tunai">Tunai</option>
+                        <option value="Non-Tunai">Non-Tunai</option>
+                    </select>
+                    <button class="btn" onclick="simpanMetode()">+ Tambah</button>
+                </div>
+
+                <div style="margin-top: 30px; margin-bottom: 16px;">
+                    <h2>Daftar Metode Aktif</h2>
+                </div>
+                
+                <!-- Tabel -->
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nama Metode</th>
+                            <th>Kategori</th>
+                            <th>Status</th>
+                            <th style="text-align: center; width: 150px;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabel-metode">
+                        <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Memuat data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script type="module">
+        // Import persis sama seperti di kategori.html
+        import { supabase, getActiveStoreId, checkPermission } from './App.js';
+
+        // Fungsi Toast Notification
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3000);
+        }
+
+        // Fungsi Load Data
+// Fungsi Load Data (Sudah dilengkapi Filter Role)
+window.loadMetode = async function() {
+            const tbody = document.getElementById('tabel-metode');
+            const storeId = await getActiveStoreId();
+
+            if (!storeId) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: red;">Error: Toko tidak ditemukan.</td></tr>`;
+                return;
+            }
+
+            // --- CEK PERMISSION ROLE ---
+            // Asumsi: permission key-nya di database role adalah 'edit_metode' dan 'delete_metode'
+            // Sesuaikan nama key-nya jika di tabel permission Anda namanya berbeda.
+            const canEdit = await checkPermission('edit_metode');
+            const canDelete = await checkPermission('delete_metode');
+
+            // Sembunyikan Form Tambah jika tidak punya akses Edit
+            const addFormContainer = document.querySelector('.add-form');
+            if (addFormContainer) {
+                addFormContainer.style.display = canEdit ? 'flex' : 'none';
+            }
+            // ---------------------------
+
+            const { data, error } = await supabase
+                .from('metode_pembayaran')
+                .select('*')
+                .eq('store_id', storeId)
+                .order('id', { ascending: true });
+
+            if (error) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: red;">Gagal memuat: ${error.message}</td></tr>`;
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Belum ada metode pembayaran.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            data.forEach(item => {
+                
+                // --- ATUR TOMBOL AKSI BERDASARKAN ROLE ---
+                let toggleBtnHtml = '';
+                let deleteBtnHtml = '';
+
+                if (canEdit) {
+                    toggleBtnHtml = `<button class="btn-toggle ${item.is_active ? '' : 'nonaktif'}" onclick="toggleStatus(${item.id}, ${item.is_active})">
+                                        ${item.is_active ? 'Matikan' : 'Hidupkan'}
+                                     </button>`;
+                }
+
+                if (canDelete) {
+                    deleteBtnHtml = `<button class="action-btn btn-delete" title="Hapus" onclick="hapusMetode(${item.id})">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                        </svg>
+                                     </button>`;
+                }
+
+                let actionCell = `<td style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">-</td>`;
+                if (canEdit || canDelete) {
+                    actionCell = `<td style="text-align: center;"><div style="display: inline-flex; gap: 6px;">${toggleBtnHtml}${deleteBtnHtml}</div></td>`;
+                }
+                // -----------------------------------------
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${item.nama_metode}</strong></td>
+                        <td>${item.kategori}</td>
+                        <td>
+                            <span style="color: ${item.is_active ? '#10b981' : '#ef4444'}; font-weight: 500; font-size: 0.9rem;">
+                                ${item.is_active ? 'Aktif' : 'Non-Aktif'}
+                            </span>
+                        </td>
+                        ${actionCell}
+                    </tr>
+                `;
+            });
+        }
+        // Fungsi Simpan Baru
+        window.simpanMetode = async function() {
+            const nama = document.getElementById('input-nama').value.trim();
+            const kategori = document.getElementById('input-kategori').value;
+            const storeId = await getActiveStoreId();
+
+            if (!nama) {
+                showToast('Nama metode tidak boleh kosong!', 'error');
+                return;
+            }
+
+            const { error } = await supabase
+                .from('metode_pembayaran')
+                .insert([{ nama_metode: nama, kategori: kategori, store_id: storeId, is_active: true }]);
+
+            if (error) {
+                showToast('Gagal menambah: ' + error.message, 'error');
+            } else {
+                showToast('Metode pembayaran berhasil ditambahkan!');
+                document.getElementById('input-nama').value = ''; // Kosongkan input
+                loadMetode(); // Refresh tabel
+            }
+        }
+
+        // Fungsi Aktif / Non-Aktif
+        window.toggleStatus = async function(id, currentStatus) {
+            const { error } = await supabase
+                .from('metode_pembayaran')
+                .update({ is_active: !currentStatus })
+                .eq('id', id);
+
+            if (error) {
+                showToast('Gagal mengubah status: ' + error.message, 'error');
+            } else {
+                showToast('Status metode berhasil diperbarui.');
+                loadMetode();
+            }
+        }
+
+        // Fungsi Hapus
+        window.hapusMetode = async function(id) {
+            if (confirm("Apakah Anda yakin ingin menghapus metode pembayaran ini?")) {
+                const { error } = await supabase
+                    .from('metode_pembayaran')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) {
+                    showToast('Gagal menghapus: ' + error.message, 'error');
+                } else {
+                    showToast('Metode pembayaran dihapus.');
+                    loadMetode();
+                }
+            }
+        }
+
+        // Eksekusi fungsi saat halaman dimuat
+        loadMetode();
+    </script>
+</body>
+</html>

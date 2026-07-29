@@ -23,9 +23,15 @@
             border-radius: 14px;
             border: 1px solid var(--border);
             display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+        }
+
+        .filter-top-row {
+            display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
             flex-wrap: wrap;
             gap: 16px;
         }
@@ -40,7 +46,7 @@
         /* --- CUSTOM DROPDOWN (SERAGAM DENGAN DASHBOARD) --- */
         .custom-dropdown-container {
             position: relative;
-            width: 150px;
+            width: 180px;
             user-select: none;
         }
 
@@ -136,52 +142,70 @@
             
             <!-- Filter & Tombol Export Excel -->
             <div class="filter-card">
-                <div class="filter-row">
-                    <!-- Dropdown Tahun -->
-                    <div class="custom-dropdown-container">
-                        <div class="custom-dropdown-header" onclick="toggleDropdown('tahun')">
-                            <span id="selected-tahun-text">Memuat...</span>
-                            <span style="font-size: 0.75rem;">▼</span>
-                        </div>
-                        <div class="custom-dropdown-list" id="tahun-dropdown-list"></div>
-                        <input type="hidden" id="active-tahun">
+                
+                <!-- PILIHAN TOKO KHUSUS ADMIN ALL STORES -->
+                <div class="filter-row" id="wrapper-filter-toko" style="border-bottom: 1px solid var(--border); padding-bottom: 14px; display: none; width: 100%;">
+                    <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        <span>🏢</span> Pilih Cabang Toko:
                     </div>
-
-                    <!-- Dropdown Bulan -->
-                    <div class="custom-dropdown-container">
-                        <div class="custom-dropdown-header" onclick="toggleDropdown('bulan')">
-                            <span id="selected-bulan-text">Juli</span>
+                    <div class="custom-dropdown-container" style="width: 240px;">
+                        <div class="custom-dropdown-header" onclick="toggleDropdown('toko')">
+                            <span id="selected-toko-text">Semua Toko (All Stores)</span>
                             <span style="font-size: 0.75rem;">▼</span>
                         </div>
-                        <div class="custom-dropdown-list" id="bulan-dropdown-list">
-                            <div class="custom-dropdown-item" onclick="selectBulanItem('01', 'Januari')">Januari</div>
-                            <div class="custom-dropdown-item" onclick="selectBulanItem('02', 'Februari')">Februari</div>
-                            <div class="custom-dropdown-item" onclick="selectBulanItem('03', 'Maret')">Maret</div>
-                            <div class="custom-dropdown-item" onclick="selectBulanItem('04', 'April')">April</div>
-                            <div class="custom-dropdown-item" onclick="selectBulanItem('05', 'Mei')">Mei</div>
-                            <div class="custom-dropdown-item" onclick="selectBulanItem('06', 'Juni')">Juni</div>
-                            <div class="custom-dropdown-item" onclick="selectBulanItem('07', 'Juli')">Juli</div>
-                            <div class="custom-dropdown-item" onclick="selectBulanItem('08', 'Agustus')">Agustus</div>
-                            <div class="custom-dropdown-item" onclick="selectBulanItem('09', 'September')">September</div>
-                            <div class="custom-dropdown-item" onclick="selectBulanItem('10', 'Oktober')">Oktober</div>
-                            <div class="custom-dropdown-item" onclick="selectBulanItem('11', 'November')">November</div>
-                            <div class="custom-dropdown-item" onclick="selectBulanItem('12', 'Desember')">Desember</div>
-                        </div>
-                        <input type="hidden" id="active-bulan" value="07">
+                        <div class="custom-dropdown-list" id="toko-dropdown-list"></div>
+                        <input type="hidden" id="active-store-filter" value="ALL_ADMIN">
                     </div>
                 </div>
 
-                <div>
-                    <button class="btn-export" onclick="exportToExcel()">
-                        <span>📊</span> Export ke Excel
-                    </button>
+                <div class="filter-top-row">
+                    <div class="filter-row">
+                        <!-- Dropdown Tahun -->
+                        <div class="custom-dropdown-container">
+                            <div class="custom-dropdown-header" onclick="toggleDropdown('tahun')">
+                                <span id="selected-tahun-text">Memuat...</span>
+                                <span style="font-size: 0.75rem;">▼</span>
+                            </div>
+                            <div class="custom-dropdown-list" id="tahun-dropdown-list"></div>
+                            <input type="hidden" id="active-tahun">
+                        </div>
+
+                        <!-- Dropdown Bulan -->
+                        <div class="custom-dropdown-container">
+                            <div class="custom-dropdown-header" onclick="toggleDropdown('bulan')">
+                                <span id="selected-bulan-text">Juli</span>
+                                <span style="font-size: 0.75rem;">▼</span>
+                            </div>
+                            <div class="custom-dropdown-list" id="bulan-dropdown-list">
+                                <div class="custom-dropdown-item" onclick="selectBulanItem('01', 'Januari')">Januari</div>
+                                <div class="custom-dropdown-item" onclick="selectBulanItem('02', 'Februari')">Februari</div>
+                                <div class="custom-dropdown-item" onclick="selectBulanItem('03', 'Maret')">Maret</div>
+                                <div class="custom-dropdown-item" onclick="selectBulanItem('04', 'April')">April</div>
+                                <div class="custom-dropdown-item" onclick="selectBulanItem('05', 'Mei')">Mei</div>
+                                <div class="custom-dropdown-item" onclick="selectBulanItem('06', 'Juni')">Juni</div>
+                                <div class="custom-dropdown-item" onclick="selectBulanItem('07', 'Juli')">Juli</div>
+                                <div class="custom-dropdown-item" onclick="selectBulanItem('08', 'Agustus')">Agustus</div>
+                                <div class="custom-dropdown-item" onclick="selectBulanItem('09', 'September')">September</div>
+                                <div class="custom-dropdown-item" onclick="selectBulanItem('10', 'Oktober')">Oktober</div>
+                                <div class="custom-dropdown-item" onclick="selectBulanItem('11', 'November')">November</div>
+                                <div class="custom-dropdown-item" onclick="selectBulanItem('12', 'Desember')">Desember</div>
+                            </div>
+                            <input type="hidden" id="active-bulan" value="07">
+                        </div>
+                    </div>
+
+                    <div>
+                        <button class="btn-export" onclick="exportToExcel()">
+                            <span>📊</span> Export ke Excel
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <!-- Tabel Laporan Berdasarkan SKU -->
             <div class="report-section">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h2 style="font-size: 1.05rem; font-weight: bold; color: var(--text-main);">Rekap Penjualan Berdasarkan SKU</h2>
+                    <h2 style="font-size: 1.05rem; font-weight: bold; color: var(--text-main);">Rekap Penjualan SKU (Hanya Transaksi Lunas)</h2>
                     <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="loadReportData()">🔄 Refresh</button>
                 </div>
                 <div style="overflow-x: auto;">
@@ -196,7 +220,7 @@
                             </tr>
                         </thead>
                         <tbody id="report-tbody">
-                            <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Memuat data laporan...</td></tr>
+                            <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">Memuat data laporan...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -208,7 +232,8 @@
     <div id="toast-container"></div>
 
     <script type="module">
-    import { supabase, getActiveStoreId } from './App.js';
+    import { supabase, getActiveStoreId, renderLayout } from './App.js';
+    renderLayout();
 
     const namaBulanMap = {
         '01': 'Januari', '02': 'Februari', '03': 'Maret', '04': 'April',
@@ -231,13 +256,19 @@
         const currentYear = String(now.getFullYear());
         const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
 
+        // Cek apakah user adalah Super Admin / All Stores
+        const userRole = (localStorage.getItem('user_role') || '').toLowerCase();
+        if (storeId === 'ALL_ADMIN' || userRole.includes('super_admin')) {
+            document.getElementById('wrapper-filter-toko').style.display = 'flex';
+            await loadStoreOptionsForFilter();
+        }
+
         let availableYears = [currentYear];
         try {
-            const { data, error } = await supabase
-                .from('transactions')
-                .select('created_at')
-                .eq('store_id', storeId);
+            let query = supabase.from('transactions').select('created_at');
+            if (storeId !== 'ALL_ADMIN') query = query.eq('store_id', storeId);
 
+            const { data, error } = await query;
             if (!error && data && data.length > 0) {
                 const yearsSet = new Set();
                 data.forEach(trx => {
@@ -272,17 +303,41 @@
         loadReportData();
     }
 
+    async function loadStoreOptionsForFilter() {
+        const listContainer = document.getElementById('toko-dropdown-list');
+        listContainer.innerHTML = `<div class="custom-dropdown-item" onclick="selectTokoItem('ALL_ADMIN', 'Semua Toko (All Stores)')">Semua Toko (All Stores)</div>`;
+
+        const { data: stores } = await supabase.from('stores').select('id, nama_toko');
+        if (stores) {
+            stores.forEach(s => {
+                listContainer.innerHTML += `<div class="custom-dropdown-item" onclick="selectTokoItem('${s.id}', '${s.nama_toko}')">${s.nama_toko}</div>`;
+            });
+        }
+    }
+
     window.toggleDropdown = function(type) {
         const tahunList = document.getElementById('tahun-dropdown-list');
         const bulanList = document.getElementById('bulan-dropdown-list');
+        const tokoList = document.getElementById('toko-dropdown-list');
+
+        tahunList.style.display = 'none';
+        bulanList.style.display = 'none';
+        if(tokoList) tokoList.style.display = 'none';
 
         if (type === 'tahun') {
             tahunList.style.display = tahunList.style.display === 'block' ? 'none' : 'block';
-            bulanList.style.display = 'none';
-        } else {
+        } else if (type === 'bulan') {
             bulanList.style.display = bulanList.style.display === 'block' ? 'none' : 'block';
-            tahunList.style.display = 'none';
+        } else if (type === 'toko' && tokoList) {
+            tokoList.style.display = tokoList.style.display === 'block' ? 'none' : 'block';
         }
+    }
+
+    window.selectTokoItem = function(storeIdVal, storeName) {
+        document.getElementById('active-store-filter').value = storeIdVal;
+        document.getElementById('selected-toko-text').innerText = storeName;
+        document.getElementById('toko-dropdown-list').style.display = 'none';
+        loadReportData();
     }
 
     window.selectTahunItem = function(yearVal) {
@@ -303,120 +358,141 @@
         if (!e.target.closest('.custom-dropdown-container')) {
             document.getElementById('tahun-dropdown-list').style.display = 'none';
             document.getElementById('bulan-dropdown-list').style.display = 'none';
+            const tokoList = document.getElementById('toko-dropdown-list');
+            if(tokoList) tokoList.style.display = 'none';
         }
     });
 
-    // Logika Mengambil Laporan dari tabel 'transactionitems' berdasarkan rentang tanggal 'transactions'
     window.loadReportData = async function() {
-            const storeId = await getActiveStoreId();
-            const bulan = document.getElementById('active-bulan').value;
-            const tahun = document.getElementById('active-tahun').value;
-
-            if (!bulan || !tahun) return;
-
-            const startDate = `${tahun}-${bulan}-01T00:00:00`;
-            const lastDay = new Date(parseInt(tahun), parseInt(bulan), 0).getDate();
-            const endDate = `${tahun}-${bulan}-${lastDay}T23:59:59`;
-
-            // 1. Ambil semua ID transaksi pada toko dan rentang tanggal tersebut (menggunakan .range() jika data banyak)
-            let allTrxIds = [];
-            let page = 0;
-            const pageSize = 1000;
-            let fetching = true;
-
-            while (fetching) {
-                const { data: transactions, error: trxError } = await supabase
-                    .from('transactions')
-                    .select('id')
-                    .eq('store_id', storeId)
-                    .gte('created_at', startDate)
-                    .lte('created_at', endDate)
-                    .range(page * pageSize, (page + 1) * pageSize - 1);
-
-                if (trxError) {
-                    showToast('Gagal memuat transaksi: ' + trxError.message, 'error');
-                    return;
-                }
-
-                if (transactions && transactions.length > 0) {
-                    allTrxIds.push(...transactions.map(t => t.id));
-                    if (transactions.length < pageSize) fetching = false;
-                    else page++;
-                } else {
-                    fetching = false;
-                }
-            }
-
-            if (allTrxIds.length === 0) {
-                document.getElementById('report-tbody').innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Tidak ada data penjualan pada periode ini.</td></tr>`;
-                return;
-            }
-
-            // 2. Ambil data dari 'transaction_items' secara bertahap (chunking per 200 ID agar tidak terpotong oleh Supabase)
-            let allItemsData = [];
-            const chunkSize = 200;
-
-            for (let i = 0; i < allTrxIds.length; i += chunkSize) {
-                const chunkIds = allTrxIds.slice(i, i + chunkSize);
-                const { data: itemsData, error: itemError } = await supabase
-                    .from('transaction_items')
-                    .select('*')
-                    .in('transaction_id', chunkIds);
-
-                if (!itemError && itemsData) {
-                    allItemsData.push(...itemsData);
-                }
-            }
-
-            // 3. Rekapitulasi / Agregasi Berdasarkan SKU Barang
-            const skuSummary = {};
-
-            allItemsData.forEach(item => {
-              const sku = item.sku_id || 'TANPA-SKU';
-                const nama = item.nama_barang || 'Produk Tanpa Nama';
-                const qty = Number(item.qty || 0);
-                const harga = Number(item.harga_jual || 0);
-                const subtotal = qty * harga;
-
-                if (!skuSummary[sku]) {
-                    skuSummary[sku] = {
-                        sku: sku,
-                        nama: nama,
-                        totalQty: 0,
-                        harga: harga,
-                        totalOmset: 0
-                    };
-                }
-                skuSummary[sku].totalQty += qty;
-                skuSummary[sku].totalOmset += subtotal;
-            });
-
-            const tbody = document.getElementById('report-tbody');
-            const summaryArray = Object.values(skuSummary);
-
-            if (summaryArray.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Tidak ada item terjual pada periode ini.</td></tr>`;
-                return;
-            }
-
-            // Urutkan dari omset terbesar
-            summaryArray.sort((a, b) => b.totalOmset - a.totalOmset);
-
-            tbody.innerHTML = '';
-            summaryArray.forEach(row => {
-                tbody.innerHTML += `
-                    <tr>
-                        <td><strong>${row.sku}</strong></td>
-                        <td>${row.nama}</td>
-                        <td style="text-align: center; font-weight: bold; color: var(--primary);">${row.totalQty}</td>
-                        <td>${row.harga}</td>
-                        <td style="text-align: right; font-weight: bold; color: #10b981;">Rp ${row.totalOmset.toLocaleString('id-ID')}</td>
-                    </tr>
-                `;
-            });
+        let storeId = await getActiveStoreId();
+        
+        const storeFilterInput = document.getElementById('active-store-filter');
+        if (storeFilterInput && storeFilterInput.value && storeFilterInput.value !== 'ALL_ADMIN') {
+            storeId = storeFilterInput.value;
+        } else if (!storeFilterInput || storeFilterInput.value === 'ALL_ADMIN') {
+            storeId = 'ALL_ADMIN';
         }
 
-    // Fungsi Export ke Excel (.xls)
+        const bulan = document.getElementById('active-bulan').value;
+        const tahun = document.getElementById('active-tahun').value;
+
+        if (!bulan || !tahun) return;
+
+        const startDate = `${tahun}-${bulan}-01T00:00:00`;
+        const lastDay = new Date(parseInt(tahun), parseInt(bulan), 0).getDate();
+        const endDate = `${tahun}-${bulan}-${lastDay}T23:59:59`;
+
+        // 1. Ambil ID transaksi HANYA yang berstatus 'Lunas' pada rentang tanggal tersebut
+        let allTrxIds = [];
+        let page = 0;
+        const pageSize = 1000;
+        let fetching = true;
+
+        while (fetching) {
+            let query = supabase
+                .from('transactions')
+                .select('id')
+                .eq('status_transaksi', 'Lunas')
+                .gte('created_at', startDate)
+                .lte('created_at', endDate);
+
+            // Hanya terapkan filter store_id jika BUKAN All Stores ('ALL_ADMIN')
+            if (storeId && storeId !== 'ALL_ADMIN') {
+                query = query.eq('store_id', storeId);
+            }
+
+            const { data: transactions, error: trxError } = await query.range(page * pageSize, (page + 1) * pageSize - 1);
+
+            if (trxError) {
+                showToast('Gagal memuat transaksi: ' + trxError.message, 'error');
+                return;
+            }
+
+            if (transactions && transactions.length > 0) {
+                allTrxIds.push(...transactions.map(t => t.id));
+                if (transactions.length < pageSize) fetching = false;
+                else page++;
+            } else {
+                fetching = false;
+            }
+        }
+
+        if (allTrxIds.length === 0) {
+            document.getElementById('report-tbody').innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">Tidak ada data penjualan lunas pada periode ini.</td></tr>`;
+            return;
+        }
+
+        // 2. Ambil data dari 'transaction_items' berdasarkan ID transaksi yang didapat
+        let allItemsData = [];
+        const chunkSize = 200;
+
+        for (let i = 0; i < allTrxIds.length; i += chunkSize) {
+            const chunkIds = allTrxIds.slice(i, i + chunkSize);
+            let itemQuery = supabase
+                .from('transaction_items')
+                .select('*')
+                .in('transaction_id', chunkIds);
+
+            // Jika bukan All Stores, pastikan item yang ditarik juga sesuai store_id jika kolomnya ada
+            if (storeId && storeId !== 'ALL_ADMIN') {
+                itemQuery = itemQuery.eq('store_id', storeId);
+            }
+
+            const { data: itemsData, error: itemError } = await itemQuery;
+
+            if (!itemError && itemsData) {
+                allItemsData.push(...itemsData);
+            }
+        }
+
+        // 3. Rekapitulasi / Agregasi Berdasarkan SKU Barang
+        const skuSummary = {};
+
+        allItemsData.forEach(item => {
+            const sku = item.sku_id || 'TANPA-SKU';
+            const nama = item.nama_barang || 'Produk Tanpa Nama';
+            const qty = Number(item.qty || 0);
+            const harga = Number(item.harga_jual || 0);
+            const subtotal = Number(item.subtotal_item || (qty * harga));
+
+            if (!skuSummary[sku]) {
+                skuSummary[sku] = {
+                    sku: sku,
+                    nama: nama,
+                    totalQty: 0,
+                    harga: harga,
+                    totalOmset: 0
+                };
+            }
+            skuSummary[sku].totalQty += qty;
+            skuSummary[sku].totalOmset += subtotal;
+        });
+
+        const tbody = document.getElementById('report-tbody');
+        const summaryArray = Object.values(skuSummary);
+
+        if (summaryArray.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">Tidak ada item terjual pada periode ini.</td></tr>`;
+            return;
+        }
+
+        // Urutkan dari omset terbesar
+        summaryArray.sort((a, b) => b.totalOmset - a.totalOmset);
+
+        tbody.innerHTML = '';
+        summaryArray.forEach(row => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><strong>${row.sku}</strong></td>
+                    <td>${row.nama}</td>
+                    <td style="text-align: center; font-weight: bold; color: var(--primary);">${row.totalQty}</td>
+                    <td>Rp ${row.harga.toLocaleString('id-ID')}</td>
+                    <td style="text-align: right; font-weight: bold; color: #10b981;">Rp ${row.totalOmset.toLocaleString('id-ID')}</td>
+                </tr>
+            `;
+        });
+    }
+
     window.exportToExcel = function() {
         const table = document.getElementById('sku-report-table');
         if (!table) return;

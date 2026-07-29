@@ -16,12 +16,13 @@
         .form-group { margin-bottom: 16px; position: relative; }
         .form-label { display: block; font-size: 0.85rem; margin-bottom: 6px; color: var(--text-muted); font-weight: 600; }
         .form-input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-main); color: var(--text-main); font-size: 0.9rem; box-sizing: border-box; }
+        .form-input:disabled { opacity: 0.5; cursor: not-allowed; background: var(--border); }
         
         .btn-submit { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; font-size: 0.9rem; cursor: pointer; width: 100%; }
         .btn-submit:hover { opacity: 0.9; }
         .btn-cancel { background: var(--border); color: var(--text-main); border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; font-size: 0.9rem; cursor: pointer; width: 100%; margin-top: 6px; display: none; }
 
-        /* --- MODERN CUSTOM DROPDOWN (GAYA MASTER BARANG) --- */
+        /* --- MODERN CUSTOM DROPDOWN --- */
         .custom-dropdown { position: relative; width: 100%; }
         .dropdown-select-box {
             width: 100%; padding: 10px; font-size: 0.9rem; border: 1px solid var(--border);
@@ -73,8 +74,8 @@
                             <label class="form-label">Kata Sandi (Password)</label>
                             <input type="password" id="user-password" class="form-input" placeholder="Kosongkan jika tidak diubah">
                         </div>
-                        
-                        <!-- Custom Dropdown Role (Gaya Master Barang) -->
+
+                        <!-- Custom Dropdown Role -->
                         <div>
                             <label class="form-label">Pilih Role / Hak Akses</label>
                             <input type="hidden" id="user-role" value="admin_client">
@@ -92,9 +93,14 @@
                                         <span>Kasir</span>
                                         <small style="color:var(--text-muted)">Operasional</small>
                                     </div>
-                                    <!-- Role kustom akan dimuat di sini secara dinamis -->
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- INPUT PIN ADMIN (DINAMIS SESUAI ROLE) -->
+                        <div id="wrapper-pin-admin">
+                            <label class="form-label" id="label-pin-title">PIN Admin (4 Digit untuk Void/Refund)</label>
+                            <input type="text" id="user-pin" class="form-input" maxlength="4" placeholder="Cth: 1234">
                         </div>
 
                         <div>
@@ -115,11 +121,12 @@
                                 <th>Nama Lengkap</th>
                                 <th>Email</th>
                                 <th>Role / Hak Akses</th>
+                                <th style="text-align: center;">PIN Otorisasi</th>
                                 <th style="text-align: center; width: 150px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="tabel-user">
-                            <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Memuat data pengguna...</td></tr>
+                            <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Memuat data pengguna...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -131,7 +138,8 @@
     <div id="toast-container"></div>
 
     <script type="module">
-        import { supabase, getActiveStoreId } from './App.js';
+        import { supabase, getActiveStoreId, renderLayout } from './App.js';
+        renderLayout();
 
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
@@ -144,7 +152,6 @@
 
         let allUsersData = [];
 
-        // --- CUSTOM DROPDOWN LOGIC ---
         window.toggleRoleDropdown = function() {
             const list = document.getElementById('dropdown-role-list');
             list.style.display = list.style.display === 'block' ? 'none' : 'block';
@@ -157,6 +164,35 @@
 
             document.querySelectorAll('#dropdown-role-list .dropdown-item').forEach(el => el.classList.remove('selected'));
             event.currentTarget.classList.add('selected');
+
+            // Cek apakah role yang dipilih adalah Kasir atau bukan Admin
+            aturKetersediaanPin(value);
+        }
+
+        // Fungsi untuk mengontrol aktif/tidaknya input PIN berdasarkan role
+        function jenisRoleAdalahAdmin(roleName) {
+            const r = (roleName || '').toLowerCase();
+            return r.includes('admin') || r.includes('owner') || r.includes('super');
+        }
+
+        function aturKetersediaanPin(roleValue) {
+            const inputPin = document.getElementById('user-pin');
+            const wrapperPin = document.getElementById('wrapper-pin-admin');
+            const labelPin = document.getElementById('label-pin-title');
+
+            if (jenisRoleAdalahAdmin(roleValue)) {
+                wrapperPin.style.opacity = '1';
+                inputPin.disabled = false;
+                inputPin.placeholder = "Cth: 1234";
+                labelPin.innerText = "PIN Admin (4 Digit untuk Void/Refund)";
+            } else {
+                // Jika Kasir atau role non-admin, disable input dan kosongkan nilainya
+                wrapperPin.style.opacity = '0.4';
+                inputPin.disabled = true;
+                inputPin.value = '';
+                inputPin.placeholder = "Tidak diperlukan untuk Kasir";
+                labelPin.innerText = "PIN Otorisasi (Khusus Admin)";
+            }
         }
 
         window.addEventListener('click', function(e) {
@@ -166,20 +202,21 @@
             }
         });
 
-        // --- LOAD ROLES KE DROPDOWN ---
         async function loadRoleOptions() {
             const storeId = await getActiveStoreId();
             const listContainer = document.getElementById('dropdown-role-list');
             
-            // Default role dasar sistem
             let htmlOptions = `
                 <div class="dropdown-item selected" onclick="pilihRole('admin_client', '👑 Admin Toko (Full Control)')">
                     <span>Admin Toko</span>
                     <small style="color:var(--text-muted)">Full Control</small>
                 </div>
+                <div class="dropdown-item" onclick="pilihRole('Kasir', '🏷️ Kasir')">
+                    <span>Kasir</span>
+                    <small style="color:var(--text-muted)">Operasional</small>
+                </div>
             `;
 
-            // Ambil role tambahan yang dibuat user di tabel roles
             const { data: roles } = await supabase
                 .from('roles')
                 .select('nama_role, deskripsi')
@@ -199,7 +236,6 @@
             listContainer.innerHTML = htmlOptions;
         }
 
-        // --- LOAD USERS TABLE ---
         async function loadUsers() {
             const storeId = await getActiveStoreId();
             const tbody = document.getElementById('tabel-user');
@@ -211,22 +247,32 @@
 
             if (error || !data || data.length === 0) {
                 allUsersData = [];
-                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Belum ada user lain terdaftar.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Belum ada user lain terdaftar.</td></tr>`;
                 return;
             }
 
             allUsersData = data;
             tbody.innerHTML = '';
             data.forEach(user => {
-                const roleBadge = user.role === 'admin_client' 
-                    ? `<span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:0.75rem;">Admin Toko</span>`
+                const isAdmin = jenisRoleAdalahAdmin(user.role);
+                const roleBadge = isAdmin
+                    ? `<span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:0.75rem;">${user.role}</span>`
                     : `<span style="background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:0.75rem;">${user.role}</span>`;
+
+                // Jika kasir, tampilkan garis strip (-) pada kolom PIN
+                let pinBadge = `<span style="color:var(--text-muted);">-</span>`;
+                if (isAdmin) {
+                    pinBadge = user.pin_admin 
+                        ? `<code style="background:var(--bg-main); padding:2px 6px; border-radius:4px; font-weight:bold; color:var(--primary);">${user.pin_admin}</code>` 
+                        : `<span style="color:#ef4444; font-size:0.8rem;">Belum diset</span>`;
+                }
 
                 tbody.innerHTML += `
                     <tr>
                         <td><strong>${user.nama_lengkap}</strong></td>
                         <td>${user.email}</td>
                         <td>${roleBadge}</td>
+                        <td style="text-align: center;">${pinBadge}</td>
                         <td style="text-align: center;">
                             <button class="btn" style="padding: 4px 8px; font-size:0.75rem;" onclick="mulaiEditUser('${user.id}')">✏️ Edit</button>
                             <button class="btn" style="padding: 4px 8px; font-size:0.75rem; background:#ef4444; color:white; margin-left:4px;" onclick="hapusUser('${user.id}')">🗑️</button>
@@ -243,14 +289,20 @@
             const email = document.getElementById('user-email').value.trim();
             const password = document.getElementById('user-password').value;
             const role = document.getElementById('user-role').value;
+            
+            // Jika role adalah kasir, pastikan pin_admin bernilai null
+            const pinAdmin = jenisRoleAdalahAdmin(role) ? document.getElementById('user-pin').value.trim() : null;
+
+            const updateData = { 
+                nama_lengkap: nama, 
+                email: email, 
+                role: role,
+                pin_admin: pinAdmin || null 
+            };
+            if (password) updateData.password = password;
 
             if (editId) {
-                // Update User
-                const updateData = { nama_lengkap: nama, email: email, role: role };
-                if (password) updateData.password = password; // Update password hanya jika diisi
-
                 const { error } = await supabase.from('users_profile').update(updateData).eq('id', editId);
-
                 if (error) {
                     showToast('Gagal memperbarui user: ' + error.message, 'error');
                 } else {
@@ -259,15 +311,10 @@
                     loadUsers();
                 }
             } else {
-                // Tambah User Baru
-                const { error } = await supabase.from('users_profile').insert([{
-                    store_id: storeId,
-                    nama_lengkap: nama,
-                    email: email,
-                    password: password || '123456', // Default password jika kosong
-                    role: role
-                }]);
+                updateData.store_id = storeId;
+                updateData.password = password || '123456';
 
+                const { error } = await supabase.from('users_profile').insert([updateData]);
                 if (error) {
                     showToast('Gagal menambahkan user: ' + error.message, 'error');
                 } else {
@@ -288,8 +335,12 @@
             document.getElementById('user-password').value = '';
             document.getElementById('user-role').value = user.role;
             
-            // Set teks dropdown sesuai role user
-            document.getElementById('dropdown-role-text').innerText = user.role === 'admin_client' ? '👑 Admin Toko (Full Control)' : `👤 ${user.role}`;
+            // Atur status ketersediaan PIN berdasarkan role user yang diedit
+            aturKetersediaanPin(user.role);
+            document.getElementById('user-pin').value = user.pin_admin || '';
+            
+            const isAdm = jenisRoleAdalahAdmin(user.role);
+            document.getElementById('dropdown-role-text').innerText = isAdm ? `👑 ${user.role} (Admin)` : `👤 ${user.role}`;
 
             document.getElementById('form-title').innerText = `Edit User: ${user.nama_lengkap}`;
             document.getElementById('btn-submit-user').innerText = 'Simpan Perubahan';
@@ -305,6 +356,10 @@
             document.getElementById('user-password').value = '';
             document.getElementById('user-role').value = 'admin_client';
             document.getElementById('dropdown-role-text').innerText = '👑 Admin Toko (Full Control)';
+            
+            aturKetersediaanPin('admin_client');
+            document.getElementById('user-pin').value = '';
+
             document.getElementById('form-title').innerText = 'Tambah Pengguna / Kasir Baru';
             document.getElementById('btn-submit-user').innerText = 'Simpan User';
             document.getElementById('btn-cancel-user').style.display = 'none';
@@ -321,7 +376,6 @@
             }
         }
 
-        // Inisialisasi awal
         loadRoleOptions();
         loadUsers();
     </script>

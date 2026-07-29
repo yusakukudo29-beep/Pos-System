@@ -40,7 +40,8 @@ function initApp() {
             "users.html": "nav-users",
             "userrole.html": "nav-userrole",
             "store.html": "nav-store",
-            "admin_stores.html": "nav-admin-stores"
+            "admin_stores.html": "nav-admin-stores",
+            "metode_pembayaran.html": "nav-metode" //
         };
 
         if (navMapping[currentPath]) {
@@ -110,13 +111,91 @@ async function syncUserData() {
 // ==========================================
 // FUNGSI RENDER LAYOUT
 // ==========================================
-export function renderLayout() {
+// ==========================================
+// FUNGSI RENDER LAYOUT (DINAMIS BERDASARKAN HAK AKSES PERMISSIONS)
+// ==========================================
+// ==========================================
+// FUNGSI RENDER LAYOUT (DINAMIS & FLEKSIBEL MEMBACA PERMISSIONS)
+// ==========================================
+// ==========================================
+// FUNGSI RENDER LAYOUT (MURNI BERDASARKAN PERMISSIONS DATABASE)
+// ==========================================
+export async function renderLayout() {
+    const userRole = (localStorage.getItem("user_role") || localStorage.getItem("role") || "").toLowerCase();
+    const userEmail = localStorage.getItem("user_email") || localStorage.getItem("email");
+    const storeId = await getActiveStoreId();
+
+    let userPermissions = [];
+    let isFullAdmin = userRole.includes('super_admin') || userRole.includes('admin_client') || userRole.includes('admin') || userRole.includes('owner');
+
+    if (isFullAdmin) {
+        userPermissions = ['dashboard', 'penjualan', 'barang', 'kategori', 'report', 'users', 'userrole', 'metode', 'store'];
+    } else if (userEmail) {
+        try {
+            const { data: profile } = await supabase.from('users_profile').select('role').eq('email', userEmail).maybeSingle();
+            if (profile && profile.role) {
+                const { data: roleData } = await supabase.from('roles').select('permissions').eq('store_id', storeId).eq('nama_role', profile.role).maybeSingle();
+                if (roleData && roleData.permissions) {
+                    let rawPerms = roleData.permissions;
+                    if (typeof rawPerms === 'string') {
+                        try { userPermissions = JSON.parse(rawPerms); } catch (err) { userPermissions = [rawPerms]; }
+                    } else if (Array.isArray(rawPerms)) {
+                        userPermissions = rawPerms;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("Gagal memuat permissions sidebar:", e);
+        }
+    }
+
+    // Normalisasi teks permission dari database ke huruf kecil tanpa spasi/underscore
+    const normalizedPerms = userPermissions.map(p => String(p).toLowerCase().replace(/[\s_]+/g, ''));
+
+    // Fungsi pengecekan yang murni membaca izin database tanpa bypass otomatis
+    const checkMenuAccess = (keywords) => {
+        if (isFullAdmin) return true;
+        return keywords.some(kw => normalizedPerms.some(p => p.includes(kw)));
+    };
+
     // 1. RENDER SIDEBAR
     if (!document.getElementById("app-sidebar")) {
-        const userRole = localStorage.getItem("user_role") || "";
         const adminStoresMenu = userRole.includes('super_admin') 
             ? `<li><a href="admin_stores.html" id="nav-admin-stores">🏢 Kelola Klien SaaS</a></li>` 
             : '';
+
+        let linksHTML = ``;
+
+        // Semua menu sekarang dicek ketat berdasarkan centang di database!
+        if (checkMenuAccess(['dashboard', 'lihatdashboard'])) {
+            linksHTML += `<li><a href="dashboard.html" id="nav-dashboard">📊 Dashboard</a></li>`;
+        }
+        if (checkMenuAccess(['penjualan', 'kasir', 'bukakasir'])) {
+            linksHTML += `<li><a href="penjualan.html" id="nav-penjualan">🛒 Kasir / Penjualan</a></li>`;
+        }
+        if (checkMenuAccess(['barang', 'databarang', 'lihatbarang', 'editbarang'])) {
+            linksHTML += `<li><a href="barang.html" id="nav-barang">📦 Data Barang (SKU)</a></li>`;
+        }
+        if (checkMenuAccess(['kategori', 'lihatkategori', 'editkategori'])) {
+            linksHTML += `<li><a href="kategori.html" id="nav-kategori">🏷️ Kategori</a></li>`;
+        }
+        if (checkMenuAccess(['laporan', 'report', 'lihatlaporan'])) {
+            linksHTML += `<li><a href="report.html" id="nav-report">📈 Laporan Penjualan</a></li>`;
+        }
+        if (checkMenuAccess(['user', 'manajemenuser'])) {
+            linksHTML += `<li><a href="users.html" id="nav-users">👥 Manajemen User</a></li>`;
+        }
+        if (checkMenuAccess(['store', 'toko', 'pengaturantoko'])) {
+            linksHTML += `<li><a href="store.html" id="nav-store">🏢 Pengaturan Toko</a></li>`;
+        }
+
+        if (isFullAdmin) {
+            linksHTML += `
+                <li><a href="userrole.html" id="nav-userrole">🔐 Role & Hak Akses</a></li>
+                <li><a href="metode_pembayaran.html" id="nav-metode">💳 Metode Pembayaran</a></li>
+                <li><a href="store.html" id="nav-store">🏢 Pengaturan Toko</a></li>
+            `;
+        }
 
         const sidebarHTML = `
         <div id="sidebar-backdrop" onclick="toggleSidebar()"></div>
@@ -126,14 +205,7 @@ export function renderLayout() {
                 <span style="cursor: pointer; font-size: 1rem; padding: 4px;" onclick="toggleSidebar()">✕</span>
             </div>
             <ul class="nav-links">
-                <li><a href="dashboard.html" id="nav-dashboard">📊 Dashboard</a></li>
-                <li><a href="penjualan.html" id="nav-penjualan">🛒 Kasir / Penjualan</a></li>
-                <li><a href="barang.html" id="nav-barang">📦 Data Barang (SKU)</a></li>
-                <li><a href="kategori.html" id="nav-kategori">🏷️ Kategori</a></li>
-                <li><a href="report.html" id="nav-report">📈 Laporan Penjualan</a></li>
-                <li><a href="users.html" id="nav-users">👥 Manajemen User</a></li>
-                <li><a href="userrole.html" id="nav-userrole">🔐 Role & Hak Akses</a></li>
-                <li><a href="store.html" id="nav-store">🏢 Pengaturan Toko</a></li>
+                ${linksHTML}
                 ${adminStoresMenu}
                 <li style="margin-top: 30px;"><a href="#" onclick="logoutUser()" style="color: #ef4444;">🚪 Keluar (Logout)</a></li>
             </ul>
@@ -163,7 +235,6 @@ export function renderLayout() {
         const oldHeaders = document.querySelectorAll("header:not(#app-header)");
         oldHeaders.forEach(h => h.remove());
 
-        // Ambil nama_lengkap dari cache lokal dulu (sebelum di-update oleh syncUserData)
         const username = localStorage.getItem('nama_lengkap') || localStorage.getItem('username') || 'Memuat nama...';
         const rawRole = localStorage.getItem('user_role') || localStorage.getItem('role') || 'kasir';
         
@@ -179,7 +250,7 @@ export function renderLayout() {
         let pageTitle = "POS System";
         if(currentPath.includes("dashboard")) pageTitle = "Dashboard";
         if(currentPath.includes("penjualan")) pageTitle = "Kasir / Penjualan";
-        if(currentPath.includes("barang")) pageTitle = "Data Barang";
+        if(currentPath.includes("barang")) pageTitle, pageTitle = "Data Barang";
         if(currentPath.includes("kategori")) pageTitle = "Kategori";
         if(currentPath.includes("report")) pageTitle = "Laporan Penjualan";
         if(currentPath.includes("user")) pageTitle = "Manajemen Pengguna";
@@ -215,7 +286,6 @@ export function renderLayout() {
         }
     }
 }
-
 // ==========================================
 // FUNGSI GLOBAL
 // ==========================================

@@ -32,12 +32,14 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
-        /* --- STYLING CUSTOM DROPDOWN (TAHUN & BULAN) --- */
+        /* --- STYLING CUSTOM DROPDOWN --- */
         .custom-dropdown-container {
             position: relative;
-            width: 160px;
+            width: 200px;
             user-select: none;
         }
 
@@ -140,30 +142,43 @@
             <!-- Filter Card -->
             <div class="filter-card">
                 
-                <!-- Baris Tahun (Custom Dropdown) -->
+                <!-- PILIHAN TOKO KHUSUS ADMIN ALL STORES -->
+                <div class="filter-row" id="wrapper-filter-toko" style="border-bottom: 1px solid var(--border); padding-bottom: 14px; display: none;">
+                    <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        <span>🏢</span> Pilih Cabang Toko:
+                    </div>
+                    <div class="custom-dropdown-container" style="width: 240px;">
+                        <div class="custom-dropdown-header" onclick="toggleDropdown('toko')">
+                            <span id="selected-toko-text">Semua Toko (All Stores)</span>
+                            <span style="font-size: 0.75rem;">▼</span>
+                        </div>
+                        <div class="custom-dropdown-list" id="toko-dropdown-list">
+                            <!-- Diisi via JS -->
+                        </div>
+                        <input type="hidden" id="active-store-filter" value="ALL_ADMIN">
+                    </div>
+                </div>
+
+                <!-- Baris Tahun -->
                 <div class="filter-row" style="border-bottom: 1px solid var(--border); padding-bottom: 14px;">
                     <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
                         <span>📅</span> Pilihlah Tahun:
                     </div>
-                    
                     <div class="custom-dropdown-container">
                         <div class="custom-dropdown-header" onclick="toggleDropdown('tahun')">
                             <span id="selected-tahun-text">Memuat...</span>
                             <span style="font-size: 0.75rem;">▼</span>
                         </div>
-                        <div class="custom-dropdown-list" id="tahun-dropdown-list">
-                            <!-- Diisi otomatis via JavaScript -->
-                        </div>
+                        <div class="custom-dropdown-list" id="tahun-dropdown-list"></div>
                         <input type="hidden" id="active-tahun">
                     </div>
                 </div>
 
-                <!-- Baris Bulan (Custom Dropdown) -->
+                <!-- Baris Bulan -->
                 <div class="filter-row">
                     <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
                         <span>🗓️</span> Pilihlah Bulan:
                     </div>
-                    
                     <div class="custom-dropdown-container">
                         <div class="custom-dropdown-header" onclick="toggleDropdown('bulan')">
                             <span id="selected-bulan-text">Juli</span>
@@ -192,11 +207,11 @@
             <!-- Kartu Statistik -->
             <div class="stats-grid">
                 <div class="stat-card">
-                    <span class="stat-label">Total Omset Periode Ini</span>
+                    <span class="stat-label">Total Omset Periode Ini (Lunas)</span>
                     <span class="stat-value green" id="card-total-omset">Rp 0</span>
                 </div>
                 <div class="stat-card">
-                    <span class="stat-label">Jumlah Transaksi</span>
+                    <span class="stat-label">Jumlah Transaksi Lunas</span>
                     <span class="stat-value primary" id="card-total-transaksi">0</span>
                 </div>
                 <div class="stat-card">
@@ -208,7 +223,7 @@
             <!-- Tabel Transaksi Terbaru -->
             <div class="recent-section">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h2 style="font-size: 1.05rem; font-weight: bold; color: var(--text-main);">Riwayat Transaksi Periode Ini</h2>
+                    <h2 style="font-size: 1.05rem; font-weight: bold; color: var(--text-main);">Riwayat Transaksi Lunas Periode Ini</h2>
                     <button class="btn" style="padding: 6px 12px; font-size: 0.85rem;" onclick="loadDashboardData()">🔄 Refresh</button>
                 </div>
                 <div style="overflow-x: auto;">
@@ -216,13 +231,14 @@
                         <thead>
                             <tr>
                                 <th>No. Nota</th>
+                                <th>Pelanggan</th>
                                 <th>Tanggal & Waktu</th>
-                                <th>Subtotal</th>
+                                <th>Metode Bayar</th>
                                 <th>Grand Total</th>
                             </tr>
                         </thead>
                         <tbody id="recent-trx-tbody">
-                            <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Memuat data...</td></tr>
+                            <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">Memuat data...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -234,7 +250,8 @@
     <div id="toast-container"></div>
 
     <script type="module">
-        import { supabase, getActiveStoreId } from './App.js';
+        import { supabase, getActiveStoreId, renderLayout } from './App.js';
+        renderLayout();
 
         const namaBulanMap = {
             '01': 'Januari', '02': 'Februari', '03': 'Maret', '04': 'April',
@@ -251,20 +268,25 @@
             setTimeout(() => { toast.remove(); }, 3000);
         }
 
-        // Inisialisasi Filter Otomatis
         async function initFilters() {
             const storeId = await getActiveStoreId();
             const now = new Date();
             const currentYear = String(now.getFullYear());
             const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
 
+            // Cek apakah user adalah Super Admin / All Stores
+            const userRole = (localStorage.getItem('user_role') || '').toLowerCase();
+            if (storeId === 'ALL_ADMIN' || userRole.includes('super_admin')) {
+                document.getElementById('wrapper-filter-toko').style.display = 'flex';
+                await loadStoreOptionsForFilter();
+            }
+
             let availableYears = [currentYear];
             try {
-                const { data, error } = await supabase
-                    .from('transactions')
-                    .select('created_at')
-                    .eq('store_id', storeId);
+                let query = supabase.from('transactions').select('created_at');
+                if (storeId !== 'ALL_ADMIN') query = query.eq('store_id', storeId);
 
+                const { data, error } = await query;
                 if (!error && data && data.length > 0) {
                     const yearsSet = new Set();
                     data.forEach(trx => {
@@ -280,7 +302,6 @@
                 console.warn("Gagal scan tahun:", e);
             }
 
-            // Render opsi list tahun kustom
             const listContainer = document.getElementById('tahun-dropdown-list');
             listContainer.innerHTML = '';
             availableYears.forEach((y, index) => {
@@ -289,29 +310,50 @@
                     document.getElementById('active-tahun').value = y;
                     document.getElementById('selected-tahun-text').innerText = y;
                 }
-                listContainer.innerHTML += `
-                    <div class="custom-dropdown-item" onclick="selectTahunItem('${y}')">${y}</div>
-                `;
+                listContainer.innerHTML += `<div class="custom-dropdown-item" onclick="selectTahunItem('${y}')">${y}</div>`;
             });
 
-            // Set bulan aktif default
             document.getElementById('active-bulan').value = currentMonth;
             document.getElementById('selected-bulan-text').innerText = namaBulanMap[currentMonth];
 
             loadDashboardData();
         }
 
+        async function loadStoreOptionsForFilter() {
+            const listContainer = document.getElementById('toko-dropdown-list');
+            listContainer.innerHTML = `<div class="custom-dropdown-item" onclick="selectTokoItem('ALL_ADMIN', 'Semua Toko (All Stores)')">Semua Toko (All Stores)</div>`;
+
+            const { data: stores } = await supabase.from('stores').select('id, nama_toko');
+            if (stores) {
+                stores.forEach(s => {
+                    listContainer.innerHTML += `<div class="custom-dropdown-item" onclick="selectTokoItem('${s.id}', '${s.nama_toko}')">${s.nama_toko}</div>`;
+                });
+            }
+        }
+
         window.toggleDropdown = function(type) {
             const tahunList = document.getElementById('tahun-dropdown-list');
             const bulanList = document.getElementById('bulan-dropdown-list');
+            const tokoList = document.getElementById('toko-dropdown-list');
+
+            tahunList.style.display = 'none';
+            bulanList.style.display = 'none';
+            if(tokoList) tokoList.style.display = 'none';
 
             if (type === 'tahun') {
                 tahunList.style.display = tahunList.style.display === 'block' ? 'none' : 'block';
-                bulanList.style.display = 'none';
-            } else {
+            } else if (type === 'bulan') {
                 bulanList.style.display = bulanList.style.display === 'block' ? 'none' : 'block';
-                tahunList.style.display = 'none';
+            } else if (type === 'toko' && tokoList) {
+                tokoList.style.display = tokoList.style.display === 'block' ? 'none' : 'block';
             }
+        }
+
+        window.selectTokoItem = function(storeIdVal, storeName) {
+            document.getElementById('active-store-filter').value = storeIdVal;
+            document.getElementById('selected-toko-text').innerText = storeName;
+            document.getElementById('toko-dropdown-list').style.display = 'none';
+            loadDashboardData();
         }
 
         window.selectTahunItem = function(yearVal) {
@@ -328,16 +370,24 @@
             loadDashboardData();
         }
 
-        // Tutup dropdown jika klik di luar
         window.addEventListener('click', function(e) {
             if (!e.target.closest('.custom-dropdown-container')) {
                 document.getElementById('tahun-dropdown-list').style.display = 'none';
                 document.getElementById('bulan-dropdown-list').style.display = 'none';
+                const tokoList = document.getElementById('toko-dropdown-list');
+                if(tokoList) tokoList.style.display = 'none';
             }
         });
 
         window.loadDashboardData = async function() {
-            const storeId = await getActiveStoreId();
+            const storeFilterInput = document.getElementById('active-store-filter');
+            let selectedStore = storeFilterInput ? storeFilterInput.value : 'ALL_ADMIN';
+            
+            // Jika dropdown belum siap, fallback ke getActiveStoreId()
+            if (!storeFilterInput) {
+                selectedStore = await getActiveStoreId();
+            }
+
             const bulan = document.getElementById('active-bulan').value;
             const tahun = document.getElementById('active-tahun').value;
 
@@ -347,13 +397,20 @@
             const lastDay = new Date(parseInt(tahun), parseInt(bulan), 0).getDate();
             const endDate = `${tahun}-${bulan}-${lastDay}T23:59:59`;
 
-            const { data: transactions, error } = await supabase
+            let query = supabase
                 .from('transactions')
                 .select('*')
-                .eq('store_id', storeId)
+                .eq('status_transaksi', 'Lunas')
                 .gte('created_at', startDate)
                 .lte('created_at', endDate)
                 .order('created_at', { ascending: false });
+
+            // PERBAIKAN: Hanya terapkan filter store_id jika BUKAN All Stores
+            if (selectedStore && selectedStore !== 'ALL_ADMIN') {
+                query = query.eq('store_id', selectedStore);
+            }
+
+            const { data: transactions, error } = await query;
 
             if (error) {
                 showToast('Gagal memuat data dashboard: ' + error.message, 'error');
@@ -361,11 +418,13 @@
             }
 
             let totalOmset = 0;
-            let totalTransaksi = transactions.length;
+            let totalTransaksi = transactions ? transactions.length : 0;
 
-            transactions.forEach(trx => {
-                totalOmset += Number(trx.grand_total || 0);
-            });
+            if (transactions) {
+                transactions.forEach(trx => {
+                    totalOmset += Number(trx.grand_total || 0);
+                });
+            }
 
             let rataRata = totalTransaksi > 0 ? totalOmset / totalTransaksi : 0;
 
@@ -375,7 +434,7 @@
 
             const tbody = document.getElementById('recent-trx-tbody');
             if (!transactions || transactions.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Belum ada transaksi pada periode ini.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">Belum ada transaksi lunas pada periode ini.</td></tr>`;
                 return;
             }
 
@@ -385,8 +444,9 @@
                 tbody.innerHTML += `
                     <tr>
                         <td><strong>${trx.no_nota}</strong></td>
+                        <td><span style="color: var(--primary); font-weight: 500;">${trx.nama_pelanggan || '-'}</span></td>
                         <td>${tgl}</td>
-                        <td>Rp ${Number(trx.subtotal).toLocaleString('id-ID')}</td>
+                        <td>${trx.metode_pembayaran || '-'}</td>
                         <td><strong style="color: #10b981;">Rp ${Number(trx.grand_total).toLocaleString('id-ID')}</strong></td>
                     </tr>
                 `;
