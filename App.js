@@ -14,10 +14,15 @@ function getUserThemeKey() {
 // ==========================================
 // INISIALISASI UTAMA
 // ==========================================
+// ==========================================
+// INISIALISASI UTAMA
+// ==========================================
 function initApp() {
-    const currentPath = window.location.pathname.split("/").pop() || "login.html";
+    let currentPath = window.location.pathname.split("/").pop() || "login.html";
     const isLoggedIn = localStorage.getItem("is_logged_in") === "true";
-    const publicPages = ["login.html", "register.html"];
+    
+    // Mendukung halaman publik baik dengan .html maupun bersih tanpa .html (Vercel Clean URLs)
+    const publicPages = ["login", "login.html", "register", "register.html", ""];
 
     if (!isLoggedIn && !publicPages.includes(currentPath)) {
         window.location.href = "login.html";
@@ -33,15 +38,25 @@ function initApp() {
 
         const navMapping = {
             "dashboard.html": "nav-dashboard",
+            "dashboard": "nav-dashboard",
             "penjualan.html": "nav-penjualan",
+            "penjualan": "nav-penjualan",
             "barang.html": "nav-barang",
+            "barang": "nav-barang",
             "kategori.html": "nav-kategori",
+            "kategori": "nav-kategori",
             "report.html": "nav-report",
+            "report": "nav-report",
             "users.html": "nav-users",
+            "users": "nav-users",
             "userrole.html": "nav-userrole",
+            "userrole": "nav-userrole",
             "store.html": "nav-store",
+            "store": "nav-store",
             "admin_stores.html": "nav-admin-stores",
-            "metode_pembayaran.html": "nav-metode" //
+            "admin_stores": "nav-admin-stores",
+            "metode_pembayaran.html": "nav-metode",
+            "metode_pembayaran": "nav-metode"
         };
 
         if (navMapping[currentPath]) {
@@ -56,7 +71,6 @@ if (document.readyState === 'loading') {
 } else {
     initApp();
 }
-
 // ==========================================
 // FUNGSI TARIK DATA "nama_lengkap" DARI TABEL "user_profile"
 // ==========================================
