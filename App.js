@@ -167,12 +167,14 @@ export async function renderLayout() {
     };
 
     // ==============================================================
-    // 🛡️ PROTEKSI URL / ROUTE GUARD (DOUBLE PROTECTION)
+    // 🛡️ PROTEKSI URL / ROUTE GUARD & SMART REDIRECT
     // ==============================================================
     const currentPathGuard = window.location.pathname.split("/").pop();
     let hasAccess = true;
 
     const pagePermissions = {
+        "penjualan": ['penjualan', 'kasir', 'bukakasir'],
+        "penjualan.html": ['penjualan', 'kasir', 'bukakasir'],
         "dashboard": ['dashboard', 'lihatdashboard'],
         "dashboard.html": ['dashboard', 'lihatdashboard'],
         "barang": ['barang', 'databarang', 'lihatbarang', 'editbarang'],
@@ -194,16 +196,38 @@ export async function renderLayout() {
     }
 
     if (!hasAccess) {
+        // --- Algoritma Cerdas: Cari halaman valid pertama yang diizinkan user ini ---
+        let targetRedirect = "barang"; // Fallback aman jika tidak ada match
+        
+        const possiblePages = [
+            { page: "penjualan", keys: ['penjualan', 'kasir', 'bukakasir'] },
+            { page: "barang", keys: ['barang', 'databarang', 'lihatbarang', 'editbarang'] },
+            { page: "dashboard", keys: ['dashboard', 'lihatdashboard'] },
+            { page: "kategori", keys: ['kategori', 'lihatkategori', 'editkategori'] },
+            { page: "report", keys: ['laporan', 'report', 'lihatlaporan'] },
+            { page: "users", keys: ['user', 'manajemenuser'] }
+        ];
+
+        if (isFullAdmin) {
+            targetRedirect = "dashboard";
+        } else {
+            const allowedPageObj = possiblePages.find(p => checkMenuAccess(p.keys));
+            if (allowedPageObj) {
+                targetRedirect = allowedPageObj.page;
+            }
+        }
+        // -------------------------------------------------------------------------
+
         document.body.innerHTML = ''; 
         const blockHTML = `
             <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-main, #f1f5f9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999999; font-family: sans-serif; padding: 20px;">
                 <div style="background: var(--surface, #ffffff); padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); text-align: center; max-width: 400px; width: 100%; border: 1px solid var(--border, #e2e8f0); animation: scaleUp 0.3s ease;">
                     <div style="font-size: 3.5rem; margin-bottom: 15px;">🛡️</div>
                     <h2 style="color: #ef4444; margin-bottom: 10px; font-size: 1.3rem; font-weight: bold;">Akses Ditolak!</h2>
-                    <p style="color: var(--text-main, #333); font-size: 0.95rem; margin-bottom: 25px; line-height: 1.5;">Anda tidak memiliki izin / hak akses untuk membuka halaman ini.</p>
+                    <p style="color: var(--text-main, #333); font-size: 0.95rem; margin-bottom: 25px; line-height: 1.5;">Anda tidak memiliki izin membuka halaman ini. Mengalihkan ke menu yang diizinkan...</p>
                     <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-muted, #64748b); font-size: 0.85rem; font-weight: 600;">
                         <div class="loader" style="width: 16px; height: 16px; border: 2px solid #ccc; border-top-color: #ef4444; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                        Mengalihkan ke Kasir...
+                        Memuat halaman...
                     </div>
                 </div>
                 <style>
@@ -215,7 +239,7 @@ export async function renderLayout() {
         document.body.insertAdjacentHTML("afterbegin", blockHTML);
 
         setTimeout(() => {
-            window.location.href = "penjualan";
+            window.location.href = targetRedirect; // Mengarahkan ke halaman valid pertama milik user
         }, 1500);
         
         return;
