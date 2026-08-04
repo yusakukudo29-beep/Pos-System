@@ -199,9 +199,6 @@ export async function renderLayout() {
         if (checkMenuAccess(['user', 'manajemenuser'])) {
             linksHTML += `<li><a href="users.html" id="nav-users">👥 Manajemen User</a></li>`;
         }
-        if (checkMenuAccess(['store', 'toko', 'pengaturantoko'])) {
-            linksHTML += `<li><a href="store.html" id="nav-store">🏢 Pengaturan Toko</a></li>`;
-        }
 
         if (isFullAdmin) {
             linksHTML += `

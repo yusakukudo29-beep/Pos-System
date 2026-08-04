@@ -162,6 +162,7 @@
             const tbody = document.getElementById('tabel-klien');
             tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Memuat data...</td></tr>`;
 
+            // REVISI QUERY: Tambahkan kolom `role` pada relasi `users_profile`
             const { data: stores, error } = await supabase
                 .from('stores')
                 .select(`
@@ -169,7 +170,7 @@
                     nama_toko,
                     is_active,
                     created_at,
-                    users_profile ( nama_lengkap, email )
+                    users_profile ( nama_lengkap, email, role ) 
                 `)
                 .order('created_at', { ascending: false });
 
@@ -185,9 +186,22 @@
 
             tbody.innerHTML = '';
             stores.forEach(store => {
-                if (store.id === '00000000-0000-0000-0000-000000000001') return;
+                if (store.id === '00000000-0000-0000-0000-000000000001') return; // Abaikan template store default
 
-                const user = store.users_profile && store.users_profile.length > 0 ? store.users_profile[0] : { nama_lengkap: '-', email: '-' };
+                // --- REVISI LOGIKA: CARI USER YANG MERUPAKAN PEMILIK / ADMIN UTAMA ---
+                let user = { nama_lengkap: '-', email: '-' };
+                if (store.users_profile && store.users_profile.length > 0) {
+                    // Cari profile yang rolenya mengandung kata owner / admin / super
+                    const ownerProfile = store.users_profile.find(u => {
+                        const r = (u.role || '').toLowerCase();
+                        return r.includes('owner') || r.includes('admin') || r.includes('super');
+                    });
+                    
+                    // Jika ketemu ambil ownerProfile, jika tidak ambil data pertama sebagai fallback
+                    user = ownerProfile || store.users_profile[0];
+                }
+                // ----------------------------------------------------------------------
+
                 const tglDaftar = new Date(store.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
                 
                 const badgeHtml = store.is_active 
@@ -259,7 +273,7 @@
             loadDataKlien();
         }
 
-        // 4. Modal Konfirmasi Hapus Toko Custom (Pengganti confirm() bawaan browser)
+        // 4. Modal Konfirmasi Hapus Toko Custom
         let selectedStoreIdTootip = null;
 
         window.hapusToko = function(storeId) {
