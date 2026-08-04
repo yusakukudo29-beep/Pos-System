@@ -172,6 +172,45 @@ export async function renderLayout() {
         return keywords.some(kw => normalizedPerms.some(p => p.includes(kw)));
     };
 
+    // ==============================================================
+    // 🛡️ PROTEKSI URL / ROUTE GUARD (DOUBLE PROTECTION)
+    // ==============================================================
+    // Membaca nama file / path URL saat ini (mendukung dengan atau tanpa .html)
+    const currentPathGuard = window.location.pathname.split("/").pop();
+    let hasAccess = true;
+
+    // Daftar link halaman dan kata kunci izin yang dibutuhkan
+    const pagePermissions = {
+        "dashboard": ['dashboard', 'lihatdashboard'],
+        "dashboard.html": ['dashboard', 'lihatdashboard'],
+        "barang": ['barang', 'databarang', 'lihatbarang', 'editbarang'],
+        "barang.html": ['barang', 'databarang', 'lihatbarang', 'editbarang'],
+        "kategori": ['kategori', 'lihatkategori', 'editkategori'],
+        "kategori.html": ['kategori', 'lihatkategori', 'editkategori'],
+        "report": ['laporan', 'report', 'lihatlaporan'],
+        "report.html": ['laporan', 'report', 'lihatlaporan'],
+        "users": ['user', 'manajemenuser'],
+        "users.html": ['user', 'manajemenuser']
+    };
+
+    // Halaman khusus yang murni hanya untuk Admin / Owner (Berdasarkan menu sidebar Anda)
+    const adminOnlyPages = ['userrole', 'userrole.html', 'metode_pembayaran', 'metode_pembayaran.html', 'store', 'store.html', 'admin_stores', 'admin_stores.html'];
+
+    if (adminOnlyPages.includes(currentPathGuard)) {
+        hasAccess = isFullAdmin; // Hanya isFullAdmin yang boleh masuk
+    } else if (pagePermissions[currentPathGuard]) {
+        hasAccess = checkMenuAccess(pagePermissions[currentPathGuard]); // Cek berdasarkan izin database
+    }
+
+    // Jika ketahuan tidak punya izin akses link tersebut:
+    if (!hasAccess) {
+        alert("🛡️ Akses Ditolak: Anda tidak memiliki izin untuk membuka halaman ini.");
+        window.location.href = "penjualan"; // Arahkan kembali ke halaman kasir (atau penjualan.html)
+        return; // Hentikan eksekusi script!
+    }
+    // ==============================================================
+
+
     // 1. RENDER SIDEBAR
     if (!document.getElementById("app-sidebar")) {
         const adminStoresMenu = userRole.includes('super_admin') 
