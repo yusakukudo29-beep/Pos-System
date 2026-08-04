@@ -128,12 +128,6 @@ async function syncUserData() {
 // ==========================================
 // FUNGSI RENDER LAYOUT (DINAMIS BERDASARKAN HAK AKSES PERMISSIONS)
 // ==========================================
-// ==========================================
-// FUNGSI RENDER LAYOUT (DINAMIS & FLEKSIBEL MEMBACA PERMISSIONS)
-// ==========================================
-// ==========================================
-// FUNGSI RENDER LAYOUT (MURNI BERDASARKAN PERMISSIONS DATABASE)
-// ==========================================
 export async function renderLayout() {
     const userRole = (localStorage.getItem("user_role") || localStorage.getItem("role") || "").toLowerCase();
     const userEmail = localStorage.getItem("user_email") || localStorage.getItem("email");
@@ -175,11 +169,9 @@ export async function renderLayout() {
     // ==============================================================
     // 🛡️ PROTEKSI URL / ROUTE GUARD (DOUBLE PROTECTION)
     // ==============================================================
-    // Membaca nama file / path URL saat ini (mendukung dengan atau tanpa .html)
     const currentPathGuard = window.location.pathname.split("/").pop();
     let hasAccess = true;
 
-    // Daftar link halaman dan kata kunci izin yang dibutuhkan
     const pagePermissions = {
         "dashboard": ['dashboard', 'lihatdashboard'],
         "dashboard.html": ['dashboard', 'lihatdashboard'],
@@ -193,23 +185,42 @@ export async function renderLayout() {
         "users.html": ['user', 'manajemenuser']
     };
 
-    // Halaman khusus yang murni hanya untuk Admin / Owner (Berdasarkan menu sidebar Anda)
     const adminOnlyPages = ['userrole', 'userrole.html', 'metode_pembayaran', 'metode_pembayaran.html', 'store', 'store.html', 'admin_stores', 'admin_stores.html'];
 
     if (adminOnlyPages.includes(currentPathGuard)) {
-        hasAccess = isFullAdmin; // Hanya isFullAdmin yang boleh masuk
+        hasAccess = isFullAdmin;
     } else if (pagePermissions[currentPathGuard]) {
-        hasAccess = checkMenuAccess(pagePermissions[currentPathGuard]); // Cek berdasarkan izin database
+        hasAccess = checkMenuAccess(pagePermissions[currentPathGuard]);
     }
 
-    // Jika ketahuan tidak punya izin akses link tersebut:
     if (!hasAccess) {
-        alert("🛡️ Akses Ditolak: Anda tidak memiliki izin untuk membuka halaman ini.");
-        window.location.href = "penjualan"; // Arahkan kembali ke halaman kasir (atau penjualan.html)
-        return; // Hentikan eksekusi script!
+        document.body.innerHTML = ''; 
+        const blockHTML = `
+            <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-main, #f1f5f9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999999; font-family: sans-serif; padding: 20px;">
+                <div style="background: var(--surface, #ffffff); padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); text-align: center; max-width: 400px; width: 100%; border: 1px solid var(--border, #e2e8f0); animation: scaleUp 0.3s ease;">
+                    <div style="font-size: 3.5rem; margin-bottom: 15px;">🛡️</div>
+                    <h2 style="color: #ef4444; margin-bottom: 10px; font-size: 1.3rem; font-weight: bold;">Akses Ditolak!</h2>
+                    <p style="color: var(--text-main, #333); font-size: 0.95rem; margin-bottom: 25px; line-height: 1.5;">Anda tidak memiliki izin / hak akses untuk membuka halaman ini.</p>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-muted, #64748b); font-size: 0.85rem; font-weight: 600;">
+                        <div class="loader" style="width: 16px; height: 16px; border: 2px solid #ccc; border-top-color: #ef4444; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                        Mengalihkan ke Kasir...
+                    </div>
+                </div>
+                <style>
+                    @keyframes scaleUp { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+                    @keyframes spin { to { transform: rotate(360deg); } }
+                </style>
+            </div>
+        `;
+        document.body.insertAdjacentHTML("afterbegin", blockHTML);
+
+        setTimeout(() => {
+            window.location.href = "penjualan";
+        }, 1500);
+        
+        return;
     }
     // ==============================================================
-
 
     // 1. RENDER SIDEBAR
     if (!document.getElementById("app-sidebar")) {
@@ -219,7 +230,6 @@ export async function renderLayout() {
 
         let linksHTML = ``;
 
-        // Semua menu sekarang dicek ketat berdasarkan centang di database!
         if (checkMenuAccess(['dashboard', 'lihatdashboard'])) {
             linksHTML += `<li><a href="dashboard.html" id="nav-dashboard">📊 Dashboard</a></li>`;
         }
@@ -300,7 +310,7 @@ export async function renderLayout() {
         let pageTitle = "POS System";
         if(currentPath.includes("dashboard")) pageTitle = "Dashboard";
         if(currentPath.includes("penjualan")) pageTitle = "Kasir / Penjualan";
-        if(currentPath.includes("barang")) pageTitle, pageTitle = "Data Barang";
+        if(currentPath.includes("barang")) pageTitle = "Data Barang";
         if(currentPath.includes("kategori")) pageTitle = "Kategori";
         if(currentPath.includes("report")) pageTitle = "Laporan Penjualan";
         if(currentPath.includes("user")) pageTitle = "Manajemen Pengguna";
