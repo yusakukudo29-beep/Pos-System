@@ -21,7 +21,10 @@
         .action-btn:hover { opacity: 0.85; }
         .btn-activate { background: #10b981; color: white; }
         .btn-suspend { background: #f59e0b; color: white; }
-        .btn-delete { background: #ef4444; color: white; margin-left: 6px; }
+        .btn-password { background: #3b82f6; color: white; margin-left: 4px; }
+        .btn-delete { background: #ef4444; color: white; margin-left: 4px; }
+
+        .form-input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-main); color: var(--text-main); font-size: 0.9rem; box-sizing: border-box; margin-top: 6px; }
 
         /* Toast Notification Styling */
         #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
@@ -29,7 +32,7 @@
         .toast.success { border-left: 4px solid #10b981; }
         .toast.error { border-left: 4px solid #ef4444; }
 
-        /* --- STYLING MODAL KONFIRMASI CUSTOM --- */
+        /* --- STYLING MODAL CUSTOM --- */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -88,7 +91,7 @@
                                 <th>Pemilik & Email</th>
                                 <th>Tanggal Daftar</th>
                                 <th>Status Akun</th>
-                                <th style="text-align: center; width: 220px;">Aksi Admin</th>
+                                <th style="text-align: center; width: 270px;">Aksi Admin</th>
                             </tr>
                         </thead>
                         <tbody id="tabel-klien">
@@ -118,6 +121,27 @@
         </div>
     </div>
 
+    <!-- Modal Reset Password Baru -->
+    <div class="modal-overlay" id="password-modal">
+        <div class="modal-card">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold;">🔑</div>
+                <div>
+                    <h3 style="font-size: 1.05rem; font-weight: bold; color: var(--text-main);">Reset Password Klien</h3>
+                    <p style="font-size: 0.82rem; color: var(--text-muted);" id="modal-sub-email">Ubah kata sandi pemilik toko</p>
+                </div>
+            </div>
+            <div>
+                <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">Password Baru</label>
+                <input type="text" id="input-new-password" class="form-input" placeholder="Masukkan password baru minimal 6 karakter">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px;">
+                <button class="action-btn" style="background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border);" onclick="closePasswordModal()">Batal</button>
+                <button class="action-btn btn-password" id="confirm-password-btn" style="margin: 0;">Simpan Password</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container"></div>
 
     <script type="module">
@@ -137,7 +161,6 @@
             try {
                 const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
-                // Hanya hapus toko yang belum aktif DAN belum pernah aktif sama sekali sejak dibuat (> 1 jam)
                 const { data: expiredStores } = await supabase
                     .from('stores')
                     .select('id')
@@ -162,7 +185,6 @@
             const tbody = document.getElementById('tabel-klien');
             tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Memuat data...</td></tr>`;
 
-            // REVISI QUERY: Tambahkan kolom `role` pada relasi `users_profile`
             const { data: stores, error } = await supabase
                 .from('stores')
                 .select(`
@@ -170,7 +192,7 @@
                     nama_toko,
                     is_active,
                     created_at,
-                    users_profile ( nama_lengkap, email, role ) 
+                    users_profile ( id, nama_lengkap, email, role ) 
                 `)
                 .order('created_at', { ascending: false });
 
@@ -186,21 +208,16 @@
 
             tbody.innerHTML = '';
             stores.forEach(store => {
-                if (store.id === '00000000-0000-0000-0000-000000000001') return; // Abaikan template store default
+                if (store.id === '00000000-0000-0000-0000-000000000001') return;
 
-                // --- REVISI LOGIKA: CARI USER YANG MERUPAKAN PEMILIK / ADMIN UTAMA ---
-                let user = { nama_lengkap: '-', email: '-' };
+                let user = { id: null, nama_lengkap: '-', email: '-' };
                 if (store.users_profile && store.users_profile.length > 0) {
-                    // Cari profile yang rolenya mengandung kata owner / admin / super
                     const ownerProfile = store.users_profile.find(u => {
                         const r = (u.role || '').toLowerCase();
                         return r.includes('owner') || r.includes('admin') || r.includes('super');
                     });
-                    
-                    // Jika ketemu ambil ownerProfile, jika tidak ambil data pertama sebagai fallback
                     user = ownerProfile || store.users_profile[0];
                 }
-                // ----------------------------------------------------------------------
 
                 const tglDaftar = new Date(store.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
                 
@@ -221,6 +238,7 @@
                             <button class="${toggleBtnClass}" onclick="ubahStatusToko('${store.id}', ${!store.is_active}, '${user.email}', '${store.nama_toko}', '${user.nama_lengkap}')">
                                 ${toggleBtnText}
                             </button>
+                            <button class="action-btn btn-password" onclick="bukaPasswordModal('${user.id}', '${user.email}')" title="Reset Password">🔑</button>
                             <button class="action-btn btn-delete" onclick="hapusToko('${store.id}')" title="Hapus Klien">🗑️</button>
                         </td>
                     </tr>
@@ -228,7 +246,7 @@
             });
         }
 
-        // 3. Ubah Status Aktif/Pending Toko + Kirim Email Notifikasi
+        // 3. Ubah Status Aktif/Pending Toko
         window.ubahStatusToko = async function(storeId, statusAktif, userEmail, namaToko, namaUser) {
             const updateData = { is_active: statusAktif };
             if (statusAktif) {
@@ -246,34 +264,59 @@
             }
 
             if (statusAktif) {
-                showToast('Toko berhasil diaktifkan! Mengirim email...', 'success');
-                try {
-                    // Informasi detail akun administrator yang diaktifkan
-                    console.log(`=== EMAIL AKTIVASI KIRIM KE: ${userEmail} ===`);
-                    console.log(`Halo ${namaUser}, toko "${namaToko}" Anda telah diaktifkan oleh Administrator.`);
-                    console.log(`Silakan login menggunakan akun Administrator Anda:`);
-                    console.log(`- Email Login : ${userEmail}`);
-                    console.log(`- Password    : (Gunakan password yang telah Anda daftarkan sebelumnya)`);
-                    console.log(`=================================================`);
-
-                    showToast(`Email aktivasi & info login terkirim ke ${userEmail}`, 'success');
-                } catch (mailErr) {
-                    console.warn("Gagal kirim email:", mailErr);
-                }
+                showToast('Toko berhasil diaktifkan!', 'success');
             } else {
-                showToast('Toko dinonaktifkan. Mengirim email tagihan...', 'success');
-                try {
-                    console.log(`Mengirim email penonaktifan ke ${userEmail}: Halo ${namaUser}, toko ${namaToko} Anda telah dinonaktifkan. Silakan melakukan pembayaran.`);
-                    showToast(`Email tagihan berhasil dikirim ke ${userEmail}`, 'success');
-                } catch (mailErr) {
-                    console.warn("Gagal kirim email tagihan:", mailErr);
-                }
+                showToast('Toko dinonaktifkan.', 'success');
             }
 
             loadDataKlien();
         }
 
-        // 4. Modal Konfirmasi Hapus Toko Custom
+        // 4. Modal Reset Password Klien
+        let selectedUserIdForPassword = null;
+
+        window.bukaPasswordModal = function(userId, email) {
+            if (!userId || userId === 'null') {
+                showToast('Data user pemilik tidak valid.', 'error');
+                return;
+            }
+            selectedUserIdForPassword = userId;
+            document.getElementById('modal-sub-email').innerText = email;
+            document.getElementById('input-new-password').value = '';
+            document.getElementById('password-modal').classList.add('active');
+        }
+
+        window.closePasswordModal = function() {
+            selectedUserIdForPassword = null;
+            document.getElementById('password-modal').classList.remove('active');
+        }
+
+        document.getElementById('confirm-password-btn').addEventListener('click', async function() {
+            if (!selectedUserIdForPassword) return;
+            const newPassword = document.getElementById('input-new-password').value.trim();
+
+            if (!newPassword || newPassword.length < 6) {
+                showToast('Password baru minimal 6 karakter!', 'error');
+                return;
+            }
+
+            const userId = selectedUserIdForPassword;
+            closePasswordModal();
+
+            // Memperbarui password di tabel users_profile
+            const { error } = await supabase
+                .from('users_profile')
+                .update({ password: newPassword })
+                .eq('id', userId);
+
+            if (error) {
+                showToast('Gagal mereset password: ' + error.message, 'error');
+            } else {
+                showToast('Password klien berhasil diperbarui!', 'success');
+            }
+        });
+
+        // 5. Modal Konfirmasi Hapus Toko
         let selectedStoreIdTootip = null;
 
         window.hapusToko = function(storeId) {
