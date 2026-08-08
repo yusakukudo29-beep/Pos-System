@@ -143,7 +143,7 @@
             <!-- Filter & Tombol Export Excel -->
             <div class="filter-card">
                 
-                <!-- PILIHAN TOKO KHUSUS ADMIN ALL STORES -->
+                <!-- PILIHAN TOKO KHUSUS SUPER ADMIN -->
                 <div class="filter-row" id="wrapper-filter-toko" style="border-bottom: 1px solid var(--border); padding-bottom: 14px; display: none; width: 100%;">
                     <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
                         <span>🏢</span> Pilih Cabang Toko:
@@ -256,17 +256,34 @@
         const currentYear = String(now.getFullYear());
         const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
 
-        // Cek apakah user adalah Super Admin / All Stores
+        // KUNCI UTAMA: Hanya Super Admin murni yang boleh melihat filter multi-toko (ALL_ADMIN)
         const userRole = (localStorage.getItem('user_role') || '').toLowerCase();
-        if (storeId === 'ALL_ADMIN' || userRole.includes('super_admin')) {
+        const isSuperAdminOnly = userRole.includes('super_admin');
+
+        if (isSuperAdminOnly) {
             document.getElementById('wrapper-filter-toko').style.display = 'flex';
             await loadStoreOptionsForFilter();
+        } else {
+            document.getElementById('wrapper-filter-toko').style.display = 'none';
+            if (document.getElementById('active-store-filter')) {
+                document.getElementById('active-store-filter').value = storeId; // Kunci mutlak ke toko miliknya
+            }
         }
 
         let availableYears = [currentYear];
         try {
             let query = supabase.from('transactions').select('created_at');
-            if (storeId !== 'ALL_ADMIN') query = query.eq('store_id', storeId);
+            
+            // Batasi scan tahun berdasarkan hak akses
+            if (!isSuperAdminOnly) {
+                query = query.eq('store_id', storeId);
+            } else {
+                const activeStoreInput = document.getElementById('active-store-filter');
+                const currentSelectedStore = activeStoreInput ? activeStoreInput.value : 'ALL_ADMIN';
+                if (currentSelectedStore !== 'ALL_ADMIN') {
+                    query = query.eq('store_id', currentSelectedStore);
+                }
+            }
 
             const { data, error } = await query;
             if (!error && data && data.length > 0) {
@@ -364,13 +381,19 @@
     });
 
     window.loadReportData = async function() {
-        let storeId = await getActiveStoreId();
+        const userRole = (localStorage.getItem('user_role') || '').toLowerCase();
+        const isSuperAdminOnly = userRole.includes('super_admin');
+
+        let storeId = 'ALL_ADMIN';
         
-        const storeFilterInput = document.getElementById('active-store-filter');
-        if (storeFilterInput && storeFilterInput.value && storeFilterInput.value !== 'ALL_ADMIN') {
-            storeId = storeFilterInput.value;
-        } else if (!storeFilterInput || storeFilterInput.value === 'ALL_ADMIN') {
-            storeId = 'ALL_ADMIN';
+        if (isSuperAdminOnly) {
+            const storeFilterInput = document.getElementById('active-store-filter');
+            if (storeFilterInput && storeFilterInput.value) {
+                storeId = storeFilterInput.value;
+            }
+        } else {
+            // Jika admin toko biasa, paksa ambil store_id miliknya secara mutlak
+            storeId = await getActiveStoreId();
         }
 
         const bulan = document.getElementById('active-bulan').value;
@@ -396,7 +419,7 @@
                 .gte('created_at', startDate)
                 .lte('created_at', endDate);
 
-            // Hanya terapkan filter store_id jika BUKAN All Stores ('ALL_ADMIN')
+            // Terapkan filter store_id jika BUKAN All Stores ('ALL_ADMIN')
             if (storeId && storeId !== 'ALL_ADMIN') {
                 query = query.eq('store_id', storeId);
             }
@@ -433,7 +456,6 @@
                 .select('*')
                 .in('transaction_id', chunkIds);
 
-            // Jika bukan All Stores, pastikan item yang ditarik juga sesuai store_id jika kolomnya ada
             if (storeId && storeId !== 'ALL_ADMIN') {
                 itemQuery = itemQuery.eq('store_id', storeId);
             }

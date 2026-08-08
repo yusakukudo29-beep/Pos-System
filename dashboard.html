@@ -142,7 +142,7 @@
             <!-- Filter Card -->
             <div class="filter-card">
                 
-                <!-- PILIHAN TOKO KHUSUS ADMIN ALL STORES -->
+                <!-- PILIHAN TOKO KHUSUS ADMIN GLOBAL (SUPER ADMIN) -->
                 <div class="filter-row" id="wrapper-filter-toko" style="border-bottom: 1px solid var(--border); padding-bottom: 14px; display: none;">
                     <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
                         <span>🏢</span> Pilih Cabang Toko:
@@ -290,17 +290,35 @@
             const currentYear = String(now.getFullYear());
             const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
 
-            // Cek apakah user adalah Super Admin / All Stores
+            // KUNCI UTAMA: Hanya Super Admin murni yang boleh melihat filter multi-toko (ALL_ADMIN)
             const userRole = (localStorage.getItem('user_role') || '').toLowerCase();
-            if (storeId === 'ALL_ADMIN' || userRole.includes('super_admin')) {
+            const isSuperAdminOnly = userRole.includes('super_admin');
+
+            if (isSuperAdminOnly) {
                 document.getElementById('wrapper-filter-toko').style.display = 'flex';
                 await loadStoreOptionsForFilter();
+            } else {
+                // Jika Admin Toko / Admin Client, sembunyikan dropdown multi-toko
+                document.getElementById('wrapper-filter-toko').style.display = 'none';
+                if (document.getElementById('active-store-filter')) {
+                    document.getElementById('active-store-filter').value = storeId; // Paksa kunci ke store_id miliknya
+                }
             }
 
             let availableYears = [currentYear];
             try {
                 let query = supabase.from('transactions').select('created_at');
-                if (storeId !== 'ALL_ADMIN') query = query.eq('store_id', storeId);
+                
+                // Jika bukan super admin, batasi scan tahun hanya untuk tokonya sendiri
+                if (!isSuperAdminOnly) {
+                    query = query.eq('store_id', storeId);
+                } else {
+                    const activeStoreInput = document.getElementById('active-store-filter');
+                    const currentSelectedStore = activeStoreInput ? activeStoreInput.value : 'ALL_ADMIN';
+                    if (currentSelectedStore !== 'ALL_ADMIN') {
+                        query = query.eq('store_id', currentSelectedStore);
+                    }
+                }
 
                 const { data, error } = await query;
                 if (!error && data && data.length > 0) {
@@ -396,10 +414,16 @@
         });
 
         window.loadDashboardData = async function() {
+            const userRole = (localStorage.getItem('user_role') || '').toLowerCase();
+            const isSuperAdminOnly = userRole.includes('super_admin');
+
             const storeFilterInput = document.getElementById('active-store-filter');
-            let selectedStore = storeFilterInput ? storeFilterInput.value : 'ALL_ADMIN';
+            let selectedStore = 'ALL_ADMIN';
             
-            if (!storeFilterInput) {
+            if (isSuperAdminOnly && storeFilterInput) {
+                selectedStore = storeFilterInput.value;
+            } else {
+                // Jika admin toko biasa, paksa ambil store_id miliknya sendiri secara mutlak
                 selectedStore = await getActiveStoreId();
             }
 
@@ -420,6 +444,7 @@
                 .lte('created_at', endDate)
                 .order('created_at', { ascending: false });
 
+            // Terapkan filter store_id jika bukan super_admin atau jika super_admin sedang memilih toko spesifik
             if (selectedStore && selectedStore !== 'ALL_ADMIN') {
                 query = query.eq('store_id', selectedStore);
             }
