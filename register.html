@@ -171,18 +171,20 @@
             const toko = document.getElementById('reg-toko').value.trim();
             const email = document.getElementById('reg-email').value.trim();
             const password = document.getElementById('reg-password').value;
+            const paketPilihan = document.getElementById('reg-paket').value; // Ambil pilihan paket (bulanan/tahunan)
 
             const btnDaftar = document.getElementById('btn-daftar');
             btnDaftar.innerText = 'Memproses Pendaftaran...';
             btnDaftar.disabled = true;
 
-            // 1. Buat toko baru dengan is_active: false
+            // 1. Buat toko baru dengan is_active: false dan menyimpan paket pilihan
             const { data: storeData, error: storeError } = await supabase
                 .from('stores')
                 .insert([{
                     nama_toko: toko,
                     prefix_nota: 'INV',
-                    is_active: false 
+                    is_active: false,
+                    paket: paketPilihan // Menyimpan 'bulanan' atau 'tahunan' ke database
                 }])
                 .select('id')
                 .single();
@@ -205,8 +207,14 @@
                     store_id: storeData.id
                 }]);
 
-            if (userError) {
-                showToast('Gagal mendaftarkan profil user: ' + userError.message, 'error');
+                if (userError) {
+                // CEK APAKAH ERROR KARENA EMAIL DUPLIKAT
+                if (userError.message.includes('unique constraint') || userError.message.includes('users_profile_email_key')) {
+                    showToast('Email ini sudah terdaftar! Silakan gunakan email lain atau masuk ke akun Anda.', 'error');
+                } else {
+                    showToast('Gagal mendaftarkan profil user: ' + userError.message, 'error');
+                }
+
                 btnDaftar.innerText = 'Daftar & Lanjut Pembayaran';
                 btnDaftar.disabled = false;
                 return;

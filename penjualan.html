@@ -143,7 +143,7 @@
                 </div>
                 <div class="search-box-wrapper">
                     <input type="text" id="search-product" class="search-input" placeholder="Cari nama menu..." oninput="handleSearch()">
-                    <button class="refresh-btn" onclick="initKasir(true)" title="Reset Kasir">🔄</button>
+                    <button class="refresh-btn" onclick="resetPencarianDanKatalog()" title="Refresh Katalog & Pencarian">🔄</button>
                 </div>
                 <div class="product-grid" id="product-grid-container"></div>
                 <div class="pagination-bar">
@@ -899,6 +899,28 @@
             switchTab('kasir');
         }
     }
+
+
+    
+    // FUNGSI BARU: Hanya mereset pencarian dan memuat ulang produk dari database (KERANJANG AMAN)
+window.resetPencarianDanKatalog = async function() {
+    // 1. Kosongkan kotak ketik pencarian
+    document.getElementById('search-product').value = '';
+    
+    // 2. Ambil data store yang aktif
+    const storeId = await getActiveStoreId();
+    
+    // 3. Muat ulang data produk terbaru dari database Supabase
+    const { data: prods } = await supabase.from('products').select('*').eq('store_id', storeId).order('nama_barang', { ascending: true });
+    
+    if (prods) {
+        listProdukCache = prods; 
+        filteredProdukCache = prods;
+        halamanAktif = 1;
+        renderProdukPagination(); // Tampilkan ulang katalog menu
+        showToast('Katalog & pencarian diperbarui!');
+    }
+}
 
     window.mintaPinVoid = async function(trxId) {
         const isBypassed = await checkPermission('bypass_void');
