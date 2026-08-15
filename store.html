@@ -73,7 +73,7 @@
             align-items: center;
             flex-wrap: wrap;
             gap: 12px;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
         .sub-info-item {
             display: flex;
@@ -84,6 +84,13 @@
         .badge-status-sub { padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; display: inline-block; width: fit-content; }
         .badge-status-sub.aktif { background: #d1fae5; color: #065f46; }
         .badge-status-sub.expired { background: #fee2e2; color: #991b1b; }
+        
+        .btn-wa-upgrade {
+            background: #10b981; color: white; border: none; padding: 8px 14px; border-radius: 6px;
+            font-size: 0.85rem; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+            transition: opacity 0.2s;
+        }
+        .btn-wa-upgrade:hover { opacity: 0.9; }
 
         /* Toast */
         #toast-container {
@@ -110,9 +117,15 @@
 
         <!-- INFORMASI STATUS BERLANGGANAN KLIEN -->
         <div class="card" style="padding: 20px 24px;">
-            <h2 style="font-size: 1.1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                <span>📦</span> Status Berlangganan Toko
-            </h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                <h2 style="font-size: 1.1rem; display: flex; align-items: center; gap: 8px; margin: 0;">
+                    <span>📦</span> Status Berlangganan Toko
+                </h2>
+                <a href="https://wa.me/6282242227462?text=Halo%20Admin,%20saya%20ingin%20melakukan%20perpanjangan%20atau%20upgrade%20paket%20berlangganan%20untuk%20toko%20saya." target="_blank" class="btn-wa-upgrade">
+                    💬 Konfirmasi / Upgrade via WA
+                </a>
+            </div>
+
             <div class="sub-box">
                 <div class="sub-info-item">
                     <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Paket Pilihan</span>
@@ -127,8 +140,8 @@
                     <div id="sub-status-badge" style="margin-top: 2px;"><span class="badge-status-sub aktif">Memuat...</span></div>
                 </div>
             </div>
-            <p style="font-size: 0.82rem; color: var(--text-muted);">
-                * Jika masa aktif berlangganan Anda hampir habis atau kedaluwarsa, silakan lakukan pembayaran perpanjangan ke Admin Pusat agar akun tetap dapat digunakan.
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0;">
+                * Jika masa aktif berlangganan Anda hampir habis atau kedaluwarsa, silakan hubungi tombol WhatsApp di atas untuk melakukan perpanjangan.
             </p>
         </div>
 
