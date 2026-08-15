@@ -61,6 +61,14 @@
             to { transform: scale(1); opacity: 1; }
         }
 
+        /* --- STYLING UNTUK EFEK BLUR DATA SENSITIF --- */
+        .blur-protected {
+            filter: blur(5px);
+            user-select: none;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
         /* Toast */
         #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
         .toast { background: var(--surface); color: var(--text-main); border: 1px solid var(--border); padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 0.9rem; display: flex; align-items: center; gap: 10px; min-width: 280px; }
@@ -109,10 +117,19 @@
                             </div>
                         </div>
 
-                        <!-- INPUT PIN ADMIN (DINAMIS SESUAI ROLE) -->
-                        <div id="wrapper-pin-admin">
-                            <label class="form-label" id="label-pin-title">PIN Admin (4 Digit untuk Void/Refund)</label>
-                            <input type="text" id="user-pin" class="form-input" maxlength="4" placeholder="Cth: 1234">
+                        <!-- Checkbox Administrator -->
+                        <div class="form-group" style="display: flex; align-items: center; gap: 10px; background: var(--bg-main); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); height: 100%; box-sizing: border-box;">
+                            <input type="checkbox" id="user-is-admin" style="width: 18px; height: 18px; cursor: pointer;" onchange="toggleAdminCheckbox(this.checked)">
+                            <div>
+                                <label for="user-is-admin" class="form-label" style="margin: 0; cursor: pointer; color: var(--text-main); font-weight: bold;">Jadikan Administrator</label>
+                                <small style="color: var(--text-muted); font-size: 0.75rem;">Centang untuk mengaktifkan PIN Void/Refund.</small>
+                            </div>
+                        </div>
+
+                        <!-- INPUT PIN ADMIN (DINAMIS SESUAI CHECKBOX) -->
+                        <div id="wrapper-pin-admin" style="opacity: 0.4;">
+                            <label class="form-label" id="label-pin-title">PIN Otorisasi (Khusus Admin)</label>
+                            <input type="text" id="user-pin" class="form-input" maxlength="4" placeholder="Tidak diperlukan untuk Kasir" disabled>
                         </div>
 
                         <div>
@@ -133,12 +150,13 @@
                                 <th>Nama Lengkap</th>
                                 <th>Email</th>
                                 <th>Role / Hak Akses</th>
+                                <th style="text-align: center;">Status Admin</th>
                                 <th style="text-align: center;">PIN Otorisasi</th>
-                                <th style="text-align: center; width: 150px;">Aksi</th>
+                                <th style="text-align: center; width: 180px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="tabel-user">
-                            <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Memuat data pengguna...</td></tr>
+                            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Memuat data pengguna...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -183,6 +201,9 @@
         let allUsersData = [];
         let userIdToDelete = null;
 
+        // Ambil email dari sesi login saat ini
+        const loggedInUserEmail = (localStorage.getItem('user_email') || '').toLowerCase();
+
         window.toggleRoleDropdown = function() {
             const list = document.getElementById('dropdown-role-list');
             list.style.display = list.style.display === 'block' ? 'none' : 'block';
@@ -195,21 +216,19 @@
 
             document.querySelectorAll('#dropdown-role-list .dropdown-item').forEach(el => el.classList.remove('selected'));
             event.currentTarget.classList.add('selected');
-
-            aturKetersediaanPin(value);
         }
 
-        function jenisRoleAdalahAdmin(roleName) {
-            const r = (roleName || '').toLowerCase();
-            return r.includes('admin') || r.includes('owner') || r.includes('super');
+        function apakahUserOwnerUtama(userRecord) {
+            const r = (userRecord.role || '').toLowerCase();
+            return r === 'admin_client' || r === 'owner';
         }
 
-        function aturKetersediaanPin(roleValue) {
+        window.toggleAdminCheckbox = function(isChecked) {
             const inputPin = document.getElementById('user-pin');
             const wrapperPin = document.getElementById('wrapper-pin-admin');
             const labelPin = document.getElementById('label-pin-title');
 
-            if (jenisRoleAdalahAdmin(roleValue)) {
+            if (isChecked) {
                 wrapperPin.style.opacity = '1';
                 inputPin.disabled = false;
                 inputPin.placeholder = "Cth: 1234";
@@ -224,7 +243,8 @@
         }
 
         window.addEventListener('click', function(e) {
-            if (!document.getElementById('dropdown-role-container').contains(e.target)) {
+            const container = document.getElementById('dropdown-role-container');
+            if (container && !container.contains(e.target)) {
                 const list = document.getElementById('dropdown-role-list');
                 if (list) list.style.display = 'none';
             }
@@ -232,6 +252,8 @@
 
         async function loadRoleOptions() {
             const storeId = await getActiveStoreId();
+            if (!storeId) return;
+
             const listContainer = document.getElementById('dropdown-role-list');
             const inputRole = document.getElementById('user-role');
             const textRole = document.getElementById('dropdown-role-text');
@@ -245,11 +267,9 @@
 
             if (roles && roles.length > 0) {
                 roles.forEach((r, index) => {
-                    // Set role pertama dari database sebagai pilihan default otomatis
                     if (index === 0) {
                         inputRole.value = r.nama_role;
                         textRole.innerText = `👤 ${r.nama_role}`;
-                        aturKetersediaanPin(r.nama_role);
                         
                         htmlOptions += `
                             <div class="dropdown-item selected" onclick="pilihRole('${r.nama_role}', '👤 ${r.nama_role}')">
@@ -271,49 +291,86 @@
                 textRole.innerText = 'Pilih Role...';
             }
 
-            listContainer.innerHTML = htmlOptions;
+            if (listContainer) listContainer.innerHTML = htmlOptions;
         }
 
         async function loadUsers() {
             const storeId = await getActiveStoreId();
             const tbody = document.getElementById('tabel-user');
+            if (!storeId || !tbody) return;
             
             const { data, error } = await supabase
                 .from('users_profile')
                 .select('*')
-                .eq('store_id', storeId);
+                .eq('store_id', storeId)
+                .order('role', { ascending: true }); // Mengurutkan owner agar di atas
 
             if (error || !data || data.length === 0) {
                 allUsersData = [];
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Belum ada user lain terdaftar.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Belum ada user lain terdaftar.</td></tr>`;
                 return;
             }
 
             allUsersData = data;
             tbody.innerHTML = '';
+            
             data.forEach(user => {
-                const isAdmin = jenisRoleAdalahAdmin(user.role);
-                const roleBadge = isAdmin
-                    ? `<span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:0.75rem;">${user.role}</span>`
-                    : `<span style="background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:0.75rem;">${user.role}</span>`;
+                const isOwner = apakahUserOwnerUtama(user);
+                const isUserAdmin = isOwner || user.is_admin === true;
+                
+                // Pengecekan sesi: Apakah user pada baris ini = user yang sedang login?
+                const isSelf = (user.email.toLowerCase() === loggedInUserEmail);
+
+                const roleBadge = `<span style="background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:0.75rem;">${user.role || '-'}</span>`;
+                
+                const adminStatusBadge = isUserAdmin 
+                    ? `<span style="color:#10b981; font-weight:bold; font-size:0.85rem;">✅ Ya</span>`
+                    : `<span style="color:#ef4444; font-weight:bold; font-size:0.85rem;">❌ Tidak</span>`;
 
                 let pinBadge = `<span style="color:var(--text-muted);">-</span>`;
-                if (isAdmin) {
+                if (isUserAdmin) {
                     pinBadge = user.pin_admin 
                         ? `<code style="background:var(--bg-main); padding:2px 6px; border-radius:4px; font-weight:bold; color:var(--primary);">${user.pin_admin}</code>` 
                         : `<span style="color:#ef4444; font-size:0.8rem;">Belum diset</span>`;
                 }
 
+                let displayEmail = user.email;
+                let displayPin = pinBadge;
+                let actionButtons = '';
+
+                // PROTEKSI KHUSUS OWNER
+                if (isOwner) {
+                    if (isSelf) {
+                        // JIKA OWNER SEDANG MELIHAT AKUNNYA SENDIRI: Data dibuka & Tombol Edit aktif
+                        displayEmail = user.email;
+                        displayPin = pinBadge;
+                        actionButtons = `
+                            <span style="color: var(--primary); font-size: 0.75rem; font-weight: bold; margin-right: 6px;">👑 Anda</span>
+                            <button class="btn" style="padding: 4px 8px; font-size:0.75rem;" onclick="mulaiEditUser('${user.id}')">✏️ Edit</button>
+                        `;
+                        // Tidak ada tombol hapus untuk diri sendiri
+                    } else {
+                        // JIKA ORANG LAIN MELIHAT AKUN OWNER: Data diblur & Semua tombol disembunyikan
+                        displayEmail = `<span class="blur-protected" title="Dilindungi">***@owner.com</span>`;
+                        displayPin = `<span class="blur-protected" title="Dilindungi">****</span>`;
+                        actionButtons = `<span style="color: var(--primary); font-size: 0.8rem; font-weight: bold; background: rgba(37, 99, 235, 0.08); padding: 4px 8px; border-radius: 6px;">👑 Pemilik Toko</span>`;
+                    }
+                } else {
+                    // USER BIASA: Tampilkan normal
+                    actionButtons = `
+                        <button class="btn" style="padding: 4px 8px; font-size:0.75rem;" onclick="mulaiEditUser('${user.id}')">✏️ Edit</button>
+                        <button class="btn" style="padding: 4px 8px; font-size:0.75rem; background:#ef4444; color:white; margin-left:4px;" onclick="bukaModalHapus('${user.id}')">🗑️</button>
+                    `;
+                }
+
                 tbody.innerHTML += `
                     <tr>
                         <td><strong>${user.nama_lengkap}</strong></td>
-                        <td>${user.email}</td>
+                        <td>${displayEmail}</td>
                         <td>${roleBadge}</td>
-                        <td style="text-align: center;">${pinBadge}</td>
-                        <td style="text-align: center;">
-                            <button class="btn" style="padding: 4px 8px; font-size:0.75rem;" onclick="mulaiEditUser('${user.id}')">✏️ Edit</button>
-                            <button class="btn" style="padding: 4px 8px; font-size:0.75rem; background:#ef4444; color:white; margin-left:4px;" onclick="bukaModalHapus('${user.id}')">🗑️</button>
-                        </td>
+                        <td style="text-align: center;">${adminStatusBadge}</td>
+                        <td style="text-align: center;">${displayPin}</td>
+                        <td style="text-align: center;">${actionButtons}</td>
                     </tr>
                 `;
             });
@@ -321,24 +378,29 @@
 
         window.simpanUser = async function() {
             const storeId = await getActiveStoreId();
+            if (!storeId) return;
+
             const editId = document.getElementById('edit-user-id').value;
             const nama = document.getElementById('user-nama').value.trim();
             const email = document.getElementById('user-email').value.trim();
             const password = document.getElementById('user-password').value;
             const role = document.getElementById('user-role').value;
             
-            const pinAdmin = jenisRoleAdalahAdmin(role) ? document.getElementById('user-pin').value.trim() : null;
+            const isAdminChecked = document.getElementById('user-is-admin').checked;
+            const pinAdmin = isAdminChecked ? document.getElementById('user-pin').value.trim() : null;
 
             const updateData = { 
                 nama_lengkap: nama, 
                 email: email, 
                 role: role,
+                is_admin: isAdminChecked, 
                 pin_admin: pinAdmin || null 
             };
+            
             if (password) updateData.password = password;
 
             if (editId) {
-                const { error } = await supabase.from('users_profile').update(updateData).eq('id', editId);
+                const { error } = await supabase.from('users_profile').update(updateData).eq('id', editId).eq('store_id', storeId);
                 if (error) {
                     showToast('Gagal memperbarui user: ' + error.message, 'error');
                 } else {
@@ -365,19 +427,28 @@
             const user = allUsersData.find(u => u.id === id);
             if (!user) return;
 
+            const isOwner = apakahUserOwnerUtama(user);
+            const isSelf = (user.email.toLowerCase() === loggedInUserEmail);
+
+            // Cegah orang lain mengedit akun owner
+            if (isOwner && !isSelf) {
+                showToast('Akun Pemilik Utama hanya dapat diubah oleh pemilik itu sendiri!', 'error');
+                return;
+            }
+
             document.getElementById('edit-user-id').value = user.id;
             document.getElementById('user-nama').value = user.nama_lengkap;
             document.getElementById('user-email').value = user.email;
             document.getElementById('user-password').value = '';
             document.getElementById('user-role').value = user.role;
             
-            aturKetersediaanPin(user.role);
+            const adminCheckbox = document.getElementById('user-is-admin');
+            adminCheckbox.checked = user.is_admin === true;
+            toggleAdminCheckbox(adminCheckbox.checked); 
+            
             document.getElementById('user-pin').value = user.pin_admin || '';
+            document.getElementById('dropdown-role-text').innerText = `👤 ${user.role}`;
             
-            const isAdm = jenisRoleAdalahAdmin(user.role);
-            document.getElementById('dropdown-role-text').innerText = isAdm ? `👑 ${user.role} (Admin)` : `👤 ${user.role}`;
-            
-            // Sync highlight pada list dropdown
             document.querySelectorAll('#dropdown-role-list .dropdown-item').forEach(el => {
                 el.classList.remove('selected');
                 if (el.querySelector('span') && el.querySelector('span').innerText === user.role) {
@@ -398,9 +469,11 @@
             document.getElementById('user-email').value = '';
             document.getElementById('user-password').value = '';
             
-            // Render ulang role dari database
             loadRoleOptions();
             
+            const adminCheckbox = document.getElementById('user-is-admin');
+            adminCheckbox.checked = false;
+            toggleAdminCheckbox(false);
             document.getElementById('user-pin').value = '';
 
             document.getElementById('form-title').innerText = 'Tambah Pengguna / Kasir Baru';
@@ -408,10 +481,14 @@
             document.getElementById('btn-cancel-user').style.display = 'none';
         }
 
-        // ==========================================
-        // FUNGSI MODAL HAPUS CUSTOM
-        // ==========================================
         window.bukaModalHapus = function(id) {
+            const user = allUsersData.find(u => u.id === id);
+            
+            if (user && apakahUserOwnerUtama(user)) {
+                showToast('Akun Pemilik Utama tidak dapat dihapus!', 'error');
+                return;
+            }
+
             userIdToDelete = id;
             document.getElementById('delete-modal').classList.add('active');
         }
@@ -424,15 +501,16 @@
         document.getElementById('confirm-delete-btn').addEventListener('click', async function() {
             if (!userIdToDelete) return;
             const id = userIdToDelete;
-            closeDeleteModal(); // Tutup pop-up
+            const storeId = await getActiveStoreId();
+            closeDeleteModal();
 
-            const { error } = await supabase.from('users_profile').delete().eq('id', id);
+            const { error } = await supabase.from('users_profile').delete().eq('id', id).eq('store_id', storeId);
             
             if (error) {
                 showToast('Gagal menghapus user: ' + error.message, 'error');
             } else {
                 showToast('User berhasil dihapus.', 'success');
-                loadUsers(); // Refresh tabel
+                loadUsers();
             }
         });
 
