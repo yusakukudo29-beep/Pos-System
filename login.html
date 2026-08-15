@@ -20,6 +20,21 @@
         .toast.success { border-left: 4px solid #10b981; }
         .toast.error { border-left: 4px solid #ef4444; }
         .toast.warning { border-left: 4px solid #f59e0b; }
+
+        /* --- MODAL PERINGATAN EXPIRED --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
+            display: flex; justify-content: center; align-items: center; z-index: 9999;
+            opacity: 0; visibility: hidden; transition: all 0.2s ease;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal-card {
+            background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+            padding: 24px; width: 100%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            display: flex; flex-direction: column; gap: 16px; text-align: center; animation: scaleUp 0.2s ease;
+        }
+        @keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body>
@@ -49,6 +64,16 @@
         </div>
     </main>
 
+    <!-- Modal Informasi Peringatan Masa Berlangganan -->
+    <div class="modal-overlay" id="subscription-modal">
+        <div class="modal-card">
+            <div style="font-size: 3rem; margin-bottom: -4px;" id="modal-icon">⚠️</div>
+            <h3 style="font-size: 1.15rem; font-weight: bold; color: var(--text-main);" id="modal-title">Peringatan Masa Aktif</h3>
+            <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;" id="modal-desc">Pesan masa aktif paket...</p>
+            <button class="btn-submit" style="margin-top: 6px;" onclick="lanjutkanMasukAplikasi()">OK, Saya Mengerti</button>
+        </div>
+    </div>
+
     <div id="toast-container"></div>
 
     <script type="module">
@@ -61,6 +86,27 @@
             toast.innerHTML = `<span>${type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '❌'}</span> <span>${message}</span>`;
             container.appendChild(toast);
             setTimeout(() => { toast.remove(); }, 4000);
+        }
+
+        let pendingLoginRedirectData = null;
+
+        window.lanjutkanMasukAplikasi = function() {
+            document.getElementById('subscription-modal').classList.remove('active');
+            if (pendingLoginRedirectData) {
+                EksekusiSesiLogin(pendingLoginRedirectData);
+            }
+        }
+
+        function EksekusiSesiLogin(userData) {
+            localStorage.setItem("is_logged_in", "true");
+            localStorage.setItem("active_store_id", userData.store_id);
+            localStorage.setItem("user_role", userData.role);
+            localStorage.setItem("user_email", userData.email);
+
+            showToast('Login berhasil! Mengarahkan...', 'success');
+            setTimeout(() => {
+                window.location.href = 'penjualan.html';
+            }, 1000);
         }
 
         window.prosesLogin = async function() {
@@ -93,7 +139,7 @@
                 return;
             }
 
-            // 3. Jika role adalah Super Admin (Admin Global), izinkan langsung masuk
+            // 3. Jika role adalah Super Admin, izinkan langsung masuk tanpa cek store/expired
             if (userData.role === 'super_admin') {
                 localStorage.setItem("is_logged_in", "true");
                 localStorage.setItem("active_store_id", "ALL");
@@ -105,30 +151,66 @@
                 return;
             }
 
-            // 4. Cek apakah toko klien sudah aktif (is_active = true)
+            // 4. Cek data toko (status aktif & tanggal kedaluwarsa)
             const { data: storeData, error: storeError } = await supabase
                 .from('stores')
-                .select('is_active')
+                .select('is_active, subscription_end, paket')
                 .eq('id', userData.store_id)
                 .single();
 
-            if (storeError || !storeData || !storeData.is_active) {
+            if (storeError || !storeData) {
+                showToast('Data toko tidak ditemukan!', 'error');
+                btnLogin.innerText = 'Masuk';
+                btnLogin.disabled = false;
+                return;
+            }
+
+            // Jika toko belum diaktifkan sama sekali oleh admin pusat
+            if (!storeData.is_active) {
                 showToast('Akun Anda belum diaktifkan. Silakan hubungi admin untuk konfirmasi pembayaran.', 'warning');
                 btnLogin.innerText = 'Masuk';
                 btnLogin.disabled = false;
                 return;
             }
 
-            // 5. Jika aktif dan password benar, izinkan login
-            localStorage.setItem("is_logged_in", "true");
-            localStorage.setItem("active_store_id", userData.store_id);
-            localStorage.setItem("user_role", userData.role);
-            localStorage.setItem("user_email", userData.email);
+            // 5. Cek Masa Aktif (Subscription Expiration)
+            if (storeData.subscription_end) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const endDate = new Date(storeData.subscription_end);
+                endDate.setHours(0, 0, 0, 0);
 
-            showToast('Login berhasil! Mengarahkan...', 'success');
-            setTimeout(() => {
-                window.location.href = 'penjualan.html';
-            }, 1000);
+                const diffTime = endDate - today;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // Sisa hari menuju kedaluwarsa
+
+                // Jika sudah kedaluwarsa (diffDays < 0) atau mendekati expired (antara 0 s/d 7 hari ke depan)
+                if (diffDays < 0) {
+                    // Sudah Kedaluwarsa
+                    document.getElementById('modal-icon').innerText = '❌';
+                    document.getElementById('modal-title').innerText = 'Masa Berlangganan Telah Berakhir';
+                    document.getElementById('modal-desc').innerHTML = `Masa aktif paket <strong>${storeData.paket || 'bulanan'}</strong> toko Anda telah kedaluwarsa pada tanggal <strong>${endDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</strong>. Silakan lakukan perpanjangan agar akun tidak dinonaktifkan permanen.`;
+                    
+                    pendingLoginRedirectData = userData;
+                    document.getElementById('subscription-modal').classList.add('active');
+                    btnLogin.innerText = 'Masuk';
+                    btnLogin.disabled = false;
+                    return;
+                } else if (diffDays <= 7) {
+                    // Mendekati Kedaluwarsa (<= 7 hari lagi)
+                    document.getElementById('modal-icon').innerText = '⚠️';
+                    document.getElementById('modal-title').innerText = 'Peringatan: Paket Segera Berakhir';
+                    document.getElementById('modal-desc').innerHTML = `Masa aktif paket <strong>${storeData.paket || 'bulanan'}</strong> toko Anda akan segera kedaluwarsa dalam <strong>${diffDays} hari lagi</strong> (pada tanggal ${endDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}). Segera lakukan perpanjangan pembayaran.`;
+                    
+                    pendingLoginRedirectData = userData;
+                    document.getElementById('subscription-modal').classList.add('active');
+                    btnLogin.innerText = 'Masuk';
+                    btnLogin.disabled = false;
+                    return;
+                }
+            }
+
+            // 6. Jika masa aktif masih panjang (> 7 hari), langsung masuk aplikasi
+            EksekusiSesiLogin(userData);
         }
     </script>
 </body>
