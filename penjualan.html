@@ -1040,59 +1040,77 @@ window.resetPencarianDanKatalog = async function() {
         }
     }
 
-    // --- MENYUSUN FORMAT TEKS UNTUK RAWBT BLUETOOTH ---
-    // [C] = Center (Tengah), [L] = Left (Kiri), [R] = Right (Kanan)
-    let strukText = "[C]<b>" + namaToko.toUpperCase() + "</b>\n";
-    if (alamatToko) strukText += "[C]" + alamatToko + "\n";
-    if (telpToko && telpToko !== "-") strukText += "[C]Telp: " + telpToko + "\n";
-    strukText += "[C]--------------------------------\n";
+    const MAX_W = 32; // Lebar maksimal karakter untuk kertas thermal 58mm
+
+    // Fungsi bantu untuk meratakan teks ke tengah
+    function centerText(text) {
+        if (!text) return "";
+        let pad = Math.max(0, Math.floor((MAX_W - text.length) / 2));
+        return " ".repeat(pad) + text;
+    }
+
+    // Fungsi bantu untuk membuat format Kiri dan Kanan dalam satu baris
+    function printLeftRight(left, right) {
+        let space = MAX_W - (left.length + right.length);
+        if (space < 1) space = 1;
+        return left + " ".repeat(space) + right;
+    }
+
+    let strukText = "";
     
-    strukText += "[L]Nota : " + nota + "\n";
-    strukText += "[L]Waktu: " + new Date().toLocaleString('id-ID') + "\n";
-    strukText += "[L]Kasir: " + (localStorage.getItem('user_nama') || 'Admin') + "\n";
-    strukText += "[L]Plgn : " + (pelanggan || '-') + "\n";
-    strukText += "[C]--------------------------------\n";
+    // Header Toko
+    strukText += centerText(namaToko.toUpperCase()) + "\n";
+    if (alamatToko) strukText += centerText(alamatToko) + "\n";
+    if (telpToko && telpToko !== "-") strukText += centerText("Telp: " + telpToko) + "\n";
+    strukText += "-".repeat(MAX_W) + "\n";
+    
+    // Informasi Transaksi
+    strukText += "Nota : " + nota + "\n";
+    strukText += "Waktu: " + new Date().toLocaleString('id-ID') + "\n";
+    strukText += "Kasir: " + (localStorage.getItem('user_nama') || 'Admin') + "\n";
+    strukText += "Plgn : " + (pelanggan || '-') + "\n";
+    strukText += "-".repeat(MAX_W) + "\n";
 
     // Looping Item Transaksi
     items.forEach(i => {
         let hargaSat = i.qty > 0 ? (i.subtotal_item || i.subtotal) / i.qty : 0;
-        let subTotalVal = Number(i.subtotal_item || i.subtotal).toLocaleString('id-ID');
+        let subTotalVal = "Rp " + Number(i.subtotal_item || i.subtotal).toLocaleString('id-ID');
+        let detailQty = i.qty + "x @Rp " + hargaSat.toLocaleString('id-ID');
         
-        strukText += "[L]<b>" + i.nama_barang + "</b>\n";
-        strukText += "[L]  " + i.qty + "x @Rp " + hargaSat.toLocaleString('id-ID') + "[R]Rp " + subTotalVal + "\n";
+        strukText += i.nama_barang + "\n";
+        strukText += printLeftRight("  " + detailQty, subTotalVal) + "\n";
     });
 
-    strukText += "[C]--------------------------------\n";
+    strukText += "-".repeat(MAX_W) + "\n";
 
-    // Cetak Baris Biaya Tambahan jika ada
+    // Biaya Tambahan & PPN
     if (nominalBiaya > 0) {
         let labelB = (namaBiaya || 'Biaya Lain');
-        strukText += "[L]" + labelB + ":[R]Rp " + Number(nominalBiaya).toLocaleString('id-ID') + "\n";
+        strukText += printLeftRight(labelB, "Rp " + Number(nominalBiaya).toLocaleString('id-ID')) + "\n";
     }
-
-    // Cetak Baris PPN jika ada
     if (nominalPpn > 0) {
-        strukText += "[L]PPN:[R]Rp " + Number(nominalPpn).toLocaleString('id-ID') + "\n";
+        strukText += printLeftRight("PPN", "Rp " + Number(nominalPpn).toLocaleString('id-ID')) + "\n";
     }
 
-    strukText += "[L]<b>GRAND TOTAL:[R]Rp " + Number(grand).toLocaleString('id-ID') + "</b>\n";
-    strukText += "[L]Metode:[R]" + (metode || 'Tunai') + "\n";
-    strukText += "[L]Bayar:[R]Rp " + Number(bayar).toLocaleString('id-ID') + "\n";
+    // Total & Pembayaran
+    strukText += printLeftRight("GRAND TOTAL", "Rp " + Number(grand).toLocaleString('id-ID')) + "\n";
+    strukText += printLeftRight("Metode", (metode || 'Tunai')) + "\n";
+    strukText += printLeftRight("Bayar", "Rp " + Number(bayar).toLocaleString('id-ID')) + "\n";
 
-    // --- LOGIKA CEK REFUND / KEMBALIAN ---
+    // Logika Refund / Kembalian
     let selisih = Number(bayar) - Number(grand);
     if (metode && metode.toLowerCase() !== 'tunai' && metode.toLowerCase() !== 'cash' && selisih > 0) {
-        strukText += "[L]<b>Dana Refund:</b>[R]<b>Rp " + selisih.toLocaleString('id-ID') + "</b>\n";
+        strukText += printLeftRight("Dana Refund", "Rp " + selisih.toLocaleString('id-ID')) + "\n";
     } else {
-        strukText += "[L]Kembali:[R]Rp " + Number(kembali).toLocaleString('id-ID') + "\n";
+        strukText += printLeftRight("Kembali", "Rp " + Number(kembali).toLocaleString('id-ID')) + "\n";
     }
 
-    strukText += "[C]--------------------------------\n";
-    strukText += "[C]Terima Kasih Atas\n";
-    strukText += "[C]Kunjungan Anda\n";
-    strukText += "\n\n"; // Memberikan jarak agar kertas bisa dirobek dengan rapi
+    strukText += "-".repeat(MAX_W) + "\n";
+    strukText += centerText("Terima Kasih Atas") + "\n";
+    strukText += centerText("Kunjungan Anda") + "\n";
+    strukText += "\n\n"; // Jarak agar kertas mudah dirobek
 
-    // --- KIRIM OTOMATIS KE APLIKASI RAWBT ---
+    // Kirim ke RawBT
     let rawbtIntentUrl = "intent:" + encodeURIComponent(strukText) + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
     window.location.href = rawbtIntentUrl;
 }
