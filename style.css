@@ -33,7 +33,7 @@ body {
     color: var(--text-main);
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: 100dvh; /* ✅ UBAH: dari 100vh menjadi 100dvh agar akurat di HP/Tablet */
     overflow: hidden;
 }
 
@@ -119,6 +119,7 @@ main {
     flex-direction: column;
     overflow-y: auto;
     width: 100%;
+    min-height: 0; /* ✅ TAMBAHKAN INI: Mencegah area scroll bablas menembus batas bawah layar */
 }
 
 header {
