@@ -42,18 +42,17 @@ body {
 aside {
     position: fixed;
     top: 0;
-    left: -260px; /* Sembunyikan sidebar di luar layar sebelah kiri */
+    left: -260px;
     width: 260px;
-    height: 100vh; /* Bisa juga diganti jadi 100dvh jika di HP sering terpotong bawahnya */
+    height: 100dvh; /* ✅ Ganti 100vh menjadi 100dvh */
     background-color: var(--surface);
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     z-index: 3000;
-    transition: left 0.3s ease-in-out; /* Animasi geser yang mulus */
+    transition: left 0.3s ease-in-out;
     box-shadow: 6px 0 25px rgba(0,0,0,0.2);
-    overflow-y: auto; /* ✅ TAMBAHKAN INI: Agar keseluruhan sidebar bisa di-scroll */
-    padding-bottom: 20px; /* ✅ TAMBAHKAN INI: Agar item paling bawah tidak terlalu mepet layar */
+    overflow: hidden; /* ✅ Kunci agar keseluruhan sidebar tidak molor ke bawah */
 }
 
 aside.open, aside.mobile-open {
