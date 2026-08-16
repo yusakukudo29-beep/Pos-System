@@ -8,7 +8,7 @@
     <style>
         .content-body { padding: 20px; }
         .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; text-align: left; font-size: 0.9rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; text-align: left; font-size: 0.95rem; }
         th { background-color: var(--bg-main); color: var(--text-muted); padding: 12px 14px; font-weight: 600; border-bottom: 2px solid var(--border); }
         td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text-main); vertical-align: middle; }
         tr:hover td { background-color: rgba(255, 255, 255, 0.02); }
@@ -16,14 +16,11 @@
         .badge { padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; display: inline-block; }
         .badge.active { background: #d1fae5; color: #065f46; }
         .badge.pending { background: #fef3c7; color: #92400e; }
-        .badge.expired { background: #fee2e2; color: #991b1b; }
-        .badge-paket { background: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; }
 
-        .action-btn { padding: 6px 12px; border-radius: 6px; font-size: 0.82rem; font-weight: bold; cursor: pointer; border: none; transition: opacity 0.2s; }
+        .action-btn { padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; cursor: pointer; border: none; transition: opacity 0.2s; }
         .action-btn:hover { opacity: 0.85; }
         .btn-activate { background: #10b981; color: white; }
         .btn-suspend { background: #f59e0b; color: white; }
-        .btn-paket { background: #8b5cf6; color: white; margin-left: 4px; }
         .btn-password { background: #3b82f6; color: white; margin-left: 4px; }
         .btn-delete { background: #ef4444; color: white; margin-left: 4px; }
 
@@ -90,11 +87,11 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>Nama Toko & Paket</th>
+                                <th>Nama Toko</th>
                                 <th>Pemilik & Email</th>
-                                <th>Masa Berlangganan</th>
+                                <th>Tanggal Daftar</th>
                                 <th>Status Akun</th>
-                                <th style="text-align: center; width: 340px;">Aksi Admin</th>
+                                <th style="text-align: center; width: 270px;">Aksi Admin</th>
                             </tr>
                         </thead>
                         <tbody id="tabel-klien">
@@ -141,30 +138,6 @@
             <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px;">
                 <button class="action-btn" style="background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border);" onclick="closePasswordModal()">Batal</button>
                 <button class="action-btn btn-password" id="confirm-password-btn" style="margin: 0;">Simpan Password</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Ubah / Perpanjang Paket Berlangganan -->
-    <div class="modal-overlay" id="paket-modal">
-        <div class="modal-card">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold;">📦</div>
-                <div>
-                    <h3 style="font-size: 1.05rem; font-weight: bold; color: var(--text-main);">Ubah / Perpanjang Paket</h3>
-                    <p style="font-size: 0.82rem; color: var(--text-muted);" id="modal-paket-store-name">Atur paket langganan toko</p>
-                </div>
-            </div>
-            <div>
-                <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">Pilih Jenis Paket</label>
-                <select id="select-new-paket" class="form-input">
-                    <option value="bulanan">📦 Paket Bulanan (30 Hari)</option>
-                    <option value="tahunan">🚀 Paket Tahunan (1 Tahun)</option>
-                </select>
-            </div>
-            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px;">
-                <button class="action-btn" style="background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border);" onclick="closePaketModal()">Batal</button>
-                <button class="action-btn btn-paket" id="confirm-paket-btn" style="margin: 0;">Simpan & Perbarui</button>
             </div>
         </div>
     </div>
@@ -219,9 +192,6 @@
                     nama_toko,
                     is_active,
                     created_at,
-                    paket,
-                    subscription_start,
-                    subscription_end,
                     users_profile ( id, nama_lengkap, email, role ) 
                 `)
                 .order('created_at', { ascending: false });
@@ -249,48 +219,25 @@
                     user = ownerProfile || store.users_profile[0];
                 }
 
-                // Format Paket & Tanggal Berlangganan
-                const paketLabel = (store.paket === 'tahunan') ? 'Tahunan' : 'Bulanan';
-                const badgePaket = `<span class="badge-paket">${paketLabel}</span>`;
+                const tglDaftar = new Date(store.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
                 
-                let masaAktifStr = '-';
-                let isExpired = false;
-
-                if (store.subscription_start && store.subscription_end) {
-                    const tglMulai = new Date(store.subscription_start).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                    const tglAkhir = new Date(store.subscription_end).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                    masaAktifStr = `${tglMulai} s/d ${tglAkhir}`;
-
-                    const today = new Date();
-                    const endDate = new Date(store.subscription_end);
-                    if (today > endDate) {
-                        isExpired = true;
-                    }
-                }
-
-                let badgeHtml = '';
-                if (!store.is_active) {
-                    badgeHtml = `<span class="badge pending">MENUNGGU PEMBAYARAN</span>`;
-                } else if (isExpired) {
-                    badgeHtml = `<span class="badge expired">KEDALUWARSA (EXPIRED)</span>`;
-                } else {
-                    badgeHtml = `<span class="badge active">AKTIF BERLANGGANAN</span>`;
-                }
+                const badgeHtml = store.is_active 
+                    ? `<span class="badge active">AKTIF</span>` 
+                    : `<span class="badge pending">MENUNGGU PEMBAYARAN</span>`;
 
                 const toggleBtnText = store.is_active ? 'Nonaktifkan' : '✅ Aktifkan Toko';
                 const toggleBtnClass = store.is_active ? 'action-btn btn-suspend' : 'action-btn btn-activate';
 
                 tbody.innerHTML += `
                     <tr>
-                        <td><strong>${store.nama_toko}</strong> ${badgePaket}<br><small style="color:var(--text-muted)">ID: ${store.id.substring(0,8)}...</small></td>
+                        <td><strong>${store.nama_toko}</strong><br><small style="color:var(--text-muted)">ID: ${store.id.substring(0,8)}...</small></td>
                         <td>${user.nama_lengkap}<br><small style="color:var(--text-muted)">${user.email}</small></td>
-                        <td>${masaAktifStr}</td>
+                        <td>${tglDaftar}</td>
                         <td>${badgeHtml}</td>
                         <td style="text-align: center;">
-                            <button class="${toggleBtnClass}" onclick="ubahStatusToko('${store.id}', ${!store.is_active}, '${store.paket || 'bulanan'}')">
+                            <button class="${toggleBtnClass}" onclick="ubahStatusToko('${store.id}', ${!store.is_active}, '${user.email}', '${store.nama_toko}', '${user.nama_lengkap}')">
                                 ${toggleBtnText}
                             </button>
-                            <button class="action-btn btn-paket" onclick="bukaPaketModal('${store.id}', '${store.nama_toko}', '${store.paket || 'bulanan'}')" title="Ubah Paket">📦 Paket</button>
                             <button class="action-btn btn-password" onclick="bukaPasswordModal('${user.id}', '${user.email}')" title="Reset Password">🔑</button>
                             <button class="action-btn btn-delete" onclick="hapusToko('${store.id}')" title="Hapus Klien">🗑️</button>
                         </td>
@@ -299,24 +246,11 @@
             });
         }
 
-        // 3. Ubah Status Aktif/Pending Toko + Hitung Tanggal Otomatis Berdasarkan Paket
-        window.ubahStatusToko = async function(storeId, statusAktif, jenisPaket) {
-            let updateData = { is_active: statusAktif };
-
+        // 3. Ubah Status Aktif/Pending Toko
+        window.ubahStatusToko = async function(storeId, statusAktif, userEmail, namaToko, namaUser) {
+            const updateData = { is_active: statusAktif };
             if (statusAktif) {
                 updateData.is_ever_active = true;
-                
-                const startDate = new Date();
-                let endDate = new Date();
-
-                if (jenisPaket === 'tahunan') {
-                    endDate.setFullYear(endDate.getFullYear() + 1);
-                } else {
-                    endDate.setDate(endDate.getDate() + 30);
-                }
-
-                updateData.subscription_start = startDate.toISOString().split('T')[0];
-                updateData.subscription_end = endDate.toISOString().split('T')[0];
             }
 
             const { error } = await supabase
@@ -329,59 +263,16 @@
                 return;
             }
 
-            showToast(statusAktif ? 'Toko berhasil diaktifkan & masa aktif diperbarui!' : 'Toko dinonaktifkan.', 'success');
+            if (statusAktif) {
+                showToast('Toko berhasil diaktifkan!', 'success');
+            } else {
+                showToast('Toko dinonaktifkan.', 'success');
+            }
+
             loadDataKlien();
         }
 
-        // 4. Modal Ubah / Perpanjang Paket
-        let selectedStoreIdForPaket = null;
-
-        window.bukaPaketModal = function(storeId, storeName, currentPaket) {
-            selectedStoreIdForPaket = storeId;
-            document.getElementById('modal-paket-store-name').innerText = storeName;
-            document.getElementById('select-new-paket').value = currentPaket || 'bulanan';
-            document.getElementById('paket-modal').classList.add('active');
-        }
-
-        window.closePaketModal = function() {
-            selectedStoreIdForPaket = null;
-            document.getElementById('paket-modal').classList.remove('active');
-        }
-
-        document.getElementById('confirm-paket-btn').addEventListener('click', async function() {
-            if (!selectedStoreIdForPaket) return;
-            const storeId = selectedStoreIdForPaket;
-            const paketBaru = document.getElementById('select-new-paket').value;
-            closePaketModal();
-
-            const startDate = new Date();
-            let endDate = new Date();
-
-            if (paketBaru === 'tahunan') {
-                endDate.setFullYear(endDate.getFullYear() + 1); // Tambah 1 Tahun dari hari ini
-            } else {
-                endDate.setDate(endDate.getDate() + 30); // Tambah 30 Hari dari hari ini
-            }
-
-            const { error } = await supabase
-                .from('stores')
-                .update({
-                    paket: paketBaru,
-                    subscription_start: startDate.toISOString().split('T')[0],
-                    subscription_end: endDate.toISOString().split('T')[0],
-                    is_active: true // Otomatis aktifkan toko
-                })
-                .eq('id', storeId);
-
-            if (error) {
-                showToast('Gagal memperbarui paket: ' + error.message, 'error');
-            } else {
-                showToast(`Paket berhasil diubah ke ${paketBaru.toUpperCase()} & masa aktif diperbarui!`, 'success');
-                loadDataKlien();
-            }
-        });
-
-        // 5. Modal Reset Password Klien
+        // 4. Modal Reset Password Klien
         let selectedUserIdForPassword = null;
 
         window.bukaPasswordModal = function(userId, email) {
@@ -412,6 +303,7 @@
             const userId = selectedUserIdForPassword;
             closePasswordModal();
 
+            // Memperbarui password di tabel users_profile
             const { error } = await supabase
                 .from('users_profile')
                 .update({ password: newPassword })
@@ -424,7 +316,7 @@
             }
         });
 
-        // 6. Modal Konfirmasi Hapus Toko
+        // 5. Modal Konfirmasi Hapus Toko
         let selectedStoreIdTootip = null;
 
         window.hapusToko = function(storeId) {

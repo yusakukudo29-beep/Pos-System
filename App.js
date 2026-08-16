@@ -129,7 +129,6 @@ async function syncUserData() {
 // FUNGSI RENDER LAYOUT (DINAMIS BERDASARKAN HAK AKSES PERMISSIONS)
 // ==========================================
 export async function renderLayout() {
-    await checkSubscriptionExpiration();
     const userRole = (localStorage.getItem("user_role") || localStorage.getItem("role") || "").toLowerCase();
     const userEmail = localStorage.getItem("user_email") || localStorage.getItem("email");
     const storeId = await getActiveStoreId();
@@ -495,46 +494,5 @@ export function initTheme() {
     const themeToggleBtn = document.getElementById('theme-toggle');
     if (themeToggleBtn) {
         themeToggleBtn.innerHTML = currentTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
-    }
-}
-// Fungsi untuk mengecek apakah masa berlangganan sudah kedaluwarsa
-export async function checkSubscriptionExpiration() {
-    const storeId = localStorage.getItem('active_store_id');
-    if (!storeId || storeId === 'ALL_ADMIN' || storeId === '00000000-0000-0000-0000-000000000001') return;
-
-    try {
-        const { data: store, error } = await supabase
-            .from('stores')
-            .select('subscription_end, is_active')
-            .eq('id', storeId)
-            .maybeSingle();
-
-        if (error || !store || !store.subscription_end) return;
-
-        const today = new Date();
-        const endDate = new Date(store.subscription_end);
-        
-        // Hitung selisih hari (hari ini - tanggal akhir langganan)
-        const diffTime = today - endDate;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays > 0 && store.is_active) {
-            if (diffDays > 7) {
-                // Jika kedaluwarsa lebih dari 1 minggu (7 hari), otomatis nonaktifkan toko
-                await supabase
-                    .from('stores')
-                    .update({ is_active: false })
-                    .eq('id', storeId);
-                
-                alert('Masa langganan Anda telah kedaluwarsa lebih dari 7 hari. Akun dinonaktifkan otomatis. Silakan hubungi admin.');
-                localStorage.clear();
-                window.location.href = 'login.html';
-            } else {
-                // Jika baru expired <= 7 hari, hanya berikan peringatan (opsional)
-                console.warn(`Masa langganan telah berakhir sejak ${diffDays} hari lalu.`);
-            }
-        }
-    } catch (e) {
-        console.warn("Gagal mengecek masa aktif langganan:", e);
     }
 }
