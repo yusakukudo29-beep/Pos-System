@@ -1026,75 +1026,76 @@ window.resetPencarianDanKatalog = async function() {
     }
 
     window.cetakStrukThermal = async function(nota, pelanggan, namaBiaya, nominalBiaya, nominalPpn, metode, bayar, kembali, items, grand) {
-        const storeId = await getActiveStoreId();
-        let namaToko = "POS SYSTEM STORE";
-        let alamatToko = "";
-        let telpToko = "-";
+    const storeId = await getActiveStoreId();
+    let namaToko = "POS SYSTEM STORE";
+    let alamatToko = "";
+    let telpToko = "-";
 
-        if (storeId && storeId !== 'ALL_ADMIN') {
-            const { data: storeData } = await supabase.from('stores').select('*').eq('id', storeId).maybeSingle();
-            if (storeData) {
-                namaToko = storeData.nama_toko || namaToko;
-                alamatToko = storeData.alamat || '';
-                telpToko = storeData.telepon || '-';
-            }
+    if (storeId && storeId !== 'ALL_ADMIN') {
+        const { data: storeData } = await supabase.from('stores').select('*').eq('id', storeId).maybeSingle();
+        if (storeData) {
+            namaToko = storeData.nama_toko || namaToko;
+            alamatToko = storeData.alamat || '';
+            telpToko = storeData.telepon || '-';
         }
-
-        document.getElementById('p-namatoko').innerText = namaToko;
-        document.getElementById('p-alamat').innerText = alamatToko;
-        document.getElementById('p-nota').innerText = nota;
-        document.getElementById('p-tgl').innerText = new Date().toLocaleString('id-ID');
-        document.getElementById('p-pelanggan').innerText = pelanggan || '-';
-        document.getElementById('p-metode').innerText = metode || 'Tunai';
-        document.getElementById('p-grand').innerText = 'Rp ' + Number(grand).toLocaleString('id-ID');
-        document.getElementById('p-bayar').innerText = 'Rp ' + Number(bayar).toLocaleString('id-ID');
-
-        // --- LOGIKA CEK REFUND / KEMBALIAN ---
-        let selisih = Number(bayar) - Number(grand);
-        const labelKembali = document.getElementById('p-label-kembali');
-        const valueKembali = document.getElementById('p-kembali');
-
-        // Pastikan teks "Dana Refund" HANYA MUNCUL jika metodenya BUKAN Tunai/Cash
-        if (metode && metode.toLowerCase() !== 'tunai' && metode.toLowerCase() !== 'cash' && selisih > 0) {
-            labelKembali.innerText = "Dana Refund:";
-            valueKembali.innerText = 'Rp ' + selisih.toLocaleString('id-ID');
-            valueKembali.style.fontWeight = 'bold';
-        } else {
-            // Untuk pembayaran CASH / Tunai normal, tetap cetak "Kembali:"
-            labelKembali.innerText = "Kembali:";
-            valueKembali.innerText = 'Rp ' + Number(kembali).toLocaleString('id-ID');
-            valueKembali.style.fontWeight = 'normal';
-        }
-        // -------------------------------------
-
-        let itemHtml = '';
-        items.forEach(i => {
-            let hargaSat = i.qty > 0 ? (i.subtotal_item || i.subtotal) / i.qty : 0;
-            itemHtml += `<div>${i.nama_barang}</div><div style="display:flex; justify-content:space-between; padding-left:10px; font-size:10px;"><span>${i.qty}x @Rp ${hargaSat.toLocaleString('id-ID')}</span> <span>Rp ${Number(i.subtotal_item || i.subtotal).toLocaleString('id-ID')}</span></div>`;
-        });
-        document.getElementById('p-items').innerHTML = itemHtml;
-
-        // Cetak Baris Biaya Tambahan di Struk jika ada
-        const rowBiaya = document.getElementById('p-biaya-row');
-        if (nominalBiaya > 0) {
-            document.getElementById('p-namabiaya').innerText = (namaBiaya || 'Biaya Lain') + ':';
-            document.getElementById('p-nominalbiaya').innerText = 'Rp ' + Number(nominalBiaya).toLocaleString('id-ID');
-            rowBiaya.style.display = 'flex';
-        } else {
-            rowBiaya.style.display = 'none';
-        }
-
-        // Cetak Baris PPN di Struk jika ada
-        const rowPpn = document.getElementById('p-ppn-row');
-        if (nominalPpn > 0) {
-            document.getElementById('p-nominalppn').innerText = 'Rp ' + Number(nominalPpn).toLocaleString('id-ID');
-            rowPpn.style.display = 'flex';
-        } else {
-            rowPpn.style.display = 'none';
-        }
-
-        window.print();
     }
+
+    // --- MENYUSUN FORMAT TEKS UNTUK RAWBT BLUETOOTH ---
+    // [C] = Center (Tengah), [L] = Left (Kiri), [R] = Right (Kanan)
+    let strukText = "[C]<b>" + namaToko.toUpperCase() + "</b>\n";
+    if (alamatToko) strukText += "[C]" + alamatToko + "\n";
+    if (telpToko && telpToko !== "-") strukText += "[C]Telp: " + telpToko + "\n";
+    strukText += "[C]--------------------------------\n";
+    
+    strukText += "[L]Nota : " + nota + "\n";
+    strukText += "[L]Waktu: " + new Date().toLocaleString('id-ID') + "\n";
+    strukText += "[L]Kasir: " + (localStorage.getItem('user_nama') || 'Admin') + "\n";
+    strukText += "[L]Plgn : " + (pelanggan || '-') + "\n";
+    strukText += "[C]--------------------------------\n";
+
+    // Looping Item Transaksi
+    items.forEach(i => {
+        let hargaSat = i.qty > 0 ? (i.subtotal_item || i.subtotal) / i.qty : 0;
+        let subTotalVal = Number(i.subtotal_item || i.subtotal).toLocaleString('id-ID');
+        
+        strukText += "[L]<b>" + i.nama_barang + "</b>\n";
+        strukText += "[L]  " + i.qty + "x @Rp " + hargaSat.toLocaleString('id-ID') + "[R]Rp " + subTotalVal + "\n";
+    });
+
+    strukText += "[C]--------------------------------\n";
+
+    // Cetak Baris Biaya Tambahan jika ada
+    if (nominalBiaya > 0) {
+        let labelB = (namaBiaya || 'Biaya Lain');
+        strukText += "[L]" + labelB + ":[R]Rp " + Number(nominalBiaya).toLocaleString('id-ID') + "\n";
+    }
+
+    // Cetak Baris PPN jika ada
+    if (nominalPpn > 0) {
+        strukText += "[L]PPN:[R]Rp " + Number(nominalPpn).toLocaleString('id-ID') + "\n";
+    }
+
+    strukText += "[L]<b>GRAND TOTAL:[R]Rp " + Number(grand).toLocaleString('id-ID') + "</b>\n";
+    strukText += "[L]Metode:[R]" + (metode || 'Tunai') + "\n";
+    strukText += "[L]Bayar:[R]Rp " + Number(bayar).toLocaleString('id-ID') + "\n";
+
+    // --- LOGIKA CEK REFUND / KEMBALIAN ---
+    let selisih = Number(bayar) - Number(grand);
+    if (metode && metode.toLowerCase() !== 'tunai' && metode.toLowerCase() !== 'cash' && selisih > 0) {
+        strukText += "[L]<b>Dana Refund:</b>[R]<b>Rp " + selisih.toLocaleString('id-ID') + "</b>\n";
+    } else {
+        strukText += "[L]Kembali:[R]Rp " + Number(kembali).toLocaleString('id-ID') + "\n";
+    }
+
+    strukText += "[C]--------------------------------\n";
+    strukText += "[C]Terima Kasih Atas\n";
+    strukText += "[C]Kunjungan Anda\n";
+    strukText += "\n\n"; // Memberikan jarak agar kertas bisa dirobek dengan rapi
+
+    // --- KIRIM OTOMATIS KE APLIKASI RAWBT ---
+    let rawbtIntentUrl = "intent:" + encodeURIComponent(strukText) + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+    window.location.href = rawbtIntentUrl;
+}
 
     initKasir();
 </script>
