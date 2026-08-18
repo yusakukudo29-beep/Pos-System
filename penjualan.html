@@ -1140,75 +1140,95 @@ window.resetPencarianDanKatalog = async function() {
         return text;
     }
 
-    // --- HELPER 2: EKSEKUSI PENGIRIMAN DATA KE PRINTER (ANTI ERROR & AUTO CACHE) ---
-    async function eksekusiWebBluetooth(cacheKey, namaPrinter, teksStruk) {
+// --- HELPER 2: EKSEKUSI PENGIRIMAN DATA KE PRINTER (ANTI ERROR & AUTO CACHE) ---
+async function eksekusiWebBluetooth(cacheKey, namaPrinter, teksStruk) {
         try {
             let device = window.printerCache[cacheKey];
             let server;
 
-            // CEK CACHE: Jika belum ada di memori atau koneksi terputus, munculkan pop-up
+            // 1. CEK CACHE KONEKSI
             if (!device || !device.gatt.connected) {
-                alert(`OTORISASI BLUETOOTH\n\nSistem akan menghubungkan ke: [ ${namaPrinter} ].\nSilakan pilih printer Anda di daftar yang muncul.`);
-                
+                // Alert putih HAPUS. Langsung panggil pencarian Chrome
                 device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: [
-                        '000018f0-0000-1000-8000-00805f9b34fb', // UUID Standar (China)
-                        '49535343-fe7d-4ae5-8fa9-9fafd205e455', // UUID BP-TD110BT dll
-                        'e7810a71-73ae-499d-8c15-faa9aef0c3f2', 
+                        '000018f0-0000-1000-8000-00805f9b34fb', // Generik China
+                        '49535343-fe7d-4ae5-8fa9-9fafd205e455', // BP-TD110BT / Ipos
+                        'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Eppos
                         '000018ee-0000-1000-8000-00805f9b34fb'
                     ]
                 });
 
                 server = await device.gatt.connect();
-                window.printerCache[cacheKey] = device; // Simpan ke memori agar transaksi berikutnya instan!
+                window.printerCache[cacheKey] = device; // Simpan ke memori
             } else {
-                // JIKA SUDAH DI CACHE: Langsung tembak (tanpa pop-up)
                 server = await device.gatt.connect();
             }
 
-            // AUTO DETECT CHANNEL: Cari saluran pengiriman (Characteristic) yang bisa ditulis
+            // 2. CARI JALUR DATA (CHARACTERISTIC) YANG TEPAT
             const services = await server.getPrimaryServices();
-            let targetCharacteristic = null;
+            let targetChar = null;
+
+            // Daftar ID spesifik untuk printer BP-TD dan sejenisnya
+            const knownWriteChars = [
+                '00002af1-0000-1000-8000-00805f9b34fb',
+                '49535343-8841-43f4-a8d4-ecbe34729bb3',
+                'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'
+            ];
 
             for (let service of services) {
                 const characteristics = await service.getCharacteristics();
+                
+                // Cari yang paling cocok dulu
                 for (let char of characteristics) {
-                    if (char.properties.write || char.properties.writeWithoutResponse) {
-                        targetCharacteristic = char;
+                    if (knownWriteChars.includes(char.uuid)) {
+                        targetChar = char;
                         break;
                     }
                 }
-                if (targetCharacteristic) break;
+                if (targetChar) break;
+
+                // Jika tidak ada, cari sembarang jalur yang bisa Ditulis (Write)
+                if (!targetChar) {
+                    for (let char of characteristics) {
+                        if (char.properties.write || char.properties.writeWithoutResponse) {
+                            targetChar = char;
+                            break;
+                        }
+                    }
+                }
             }
 
-            if (!targetCharacteristic) throw new Error("Saluran penulisan (Write) tidak ditemukan di printer ini.");
+            if (!targetChar) throw new Error("Jalur pengiriman data tidak ditemukan di printer.");
 
+            // 3. PROSES PENGIRIMAN DATA (DIPOTONG KECIL-KECIL AGAR PRINTER TIDAK HANG)
             const encoder = new TextEncoder();
-            // \x1B\x40 = Reset Printer | \x1D\x56\x41\x10 = Potong Kertas (Cut)
-            const data = encoder.encode("\x1B\x40" + teksStruk + "\x1D\x56\x41\x10"); 
+            // \x1B\x40 = Reset Printer | \x0A = Line Feed (Enter)
+            const data = encoder.encode("\x1B\x40" + teksStruk + "\x0A\x0A"); 
 
-            // Kirim data ke printer (dipecah agar tidak error jika struk sangat panjang)
-            for (let i = 0; i < data.length; i += 512) {
-                await targetCharacteristic.writeValue(data.slice(i, i + 512));
+            // Potong menjadi maksimal 100 byte per pengiriman (Aman untuk BP-TD110BT)
+            const chunkSize = 100;
+            
+            for (let i = 0; i < data.length; i += chunkSize) {
+                let chunk = data.slice(i, i + chunkSize);
+                await targetChar.writeValue(chunk);
+                
+                // Jeda 50 milidetik agar memori printer tidak penuh
+                await new Promise(resolve => setTimeout(resolve, 50));
             }
             
-            // PENTING: Kita sengaja TIDAK MEMUTUS (disconnect) koneksi di sini.
-            // Biarkan menyambung terus agar cetakan berikutnya tidak minta izin.
-            showToast(`✅ Berhasil mencetak di ${namaPrinter}`);
+            showToast(`✅ Cetak sukses di ${namaPrinter}`);
             
         } catch (err) {
             console.error("Print Error:", err);
             if (err.message.includes('User cancelled')) {
-                showToast(`Pencetakan ke ${namaPrinter} dibatalkan oleh pengguna.`, 'error');
+                showToast(`Pencetakan ke ${namaPrinter} dibatalkan.`, 'error');
             } else {
                 showToast(`Gagal mencetak di ${namaPrinter}: ` + err.message, 'error');
             }
-            // Jika error parah, hapus cache agar pengguna dipaksa menyambung ulang dari awal
-            delete window.printerCache[cacheKey];
+            delete window.printerCache[cacheKey]; // Reset cache jika error
         }
     }
-
     initKasir();
 </script>
 </body>
