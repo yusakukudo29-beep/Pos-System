@@ -1026,13 +1026,16 @@ window.resetPencarianDanKatalog = async function() {
     }
 
 // ===================================================================
-    // LOGIKA MULTI-PRINTER (KASIR & DAPUR) VIA WEB BLUETOOTH
+    // LOGIKA MULTI-PRINTER VIA WEB BLUETOOTH (DENGAN CACHE & MULTI-UUID)
     // ===================================================================
     
+    // 1. Variabel Global untuk menyimpan izin printer agar tidak popup terus
+    window.printerCache = {};
+
     window.cetakStrukThermal = async function(nota, pelanggan, namaBiaya, nominalBiaya, nominalPpn, metode, bayar, kembali, items, grand) {
         const storeId = await getActiveStoreId();
 
-        // 1. Ambil daftar printer yang aktif di toko ini
+        // Ambil daftar printer yang aktif di toko ini
         const { data: printers, error } = await supabase
             .from('devices')
             .select('*')
@@ -1044,36 +1047,39 @@ window.resetPencarianDanKatalog = async function() {
             return;
         }
 
-        // 2. Loop setiap printer dan filter barangnya
+        // Ambil nama toko dari database untuk header (opsional)
+        let namaToko = "POS SYSTEM STORE";
+        const { data: storeData } = await supabase.from('stores').select('nama_toko').eq('id', storeId).maybeSingle();
+        if (storeData && storeData.nama_toko) namaToko = storeData.nama_toko;
+
+        // Loop setiap printer dan filter barangnya
         for (let printer of printers) {
-            // Cek apakah printer ini diset untuk "Semua/Kasir Utama"
             const isKasir = printer.kategori_ids && printer.kategori_ids.includes('SEMUA');
 
-            // Saring item belanjaan: Apakah masuk ke kategori printer ini?
             let itemsUntukPrinterIni = items.filter(i => {
-                if (isKasir) return true; // Kasir mencetak semua barang
+                if (isKasir) return true; 
                 
-                // Cari id_kategori dari barang ini melalui cache produk
                 const prod = listProdukCache.find(p => p.sku_id === i.sku_id);
                 const idKat = prod ? prod.id_kategori : null;
 
-                // Jika ID Kategori barang ada di dalam daftar kategori printer ini, setujui!
                 if (idKat && printer.kategori_ids.includes(idKat)) return true;
-                
                 return false;
             });
 
-            // 3. Jika ada barang yang harus dicetak di printer ini, kirim ke Bluetooth!
+            // Jika ada barang yang harus dicetak di printer ini, eksekusi!
             if (itemsUntukPrinterIni.length > 0) {
-                let teksStruk = susunTeksStruk(printer.nama_perangkat, isKasir, nota, pelanggan, namaBiaya, nominalBiaya, nominalPpn, metode, bayar, kembali, itemsUntukPrinterIni, grand);
-                await eksekusiWebBluetooth(printer.nama_perangkat, teksStruk);
+                let teksStruk = susunTeksStruk(namaToko, printer.nama_perangkat, isKasir, nota, pelanggan, namaBiaya, nominalBiaya, nominalPpn, metode, bayar, kembali, itemsUntukPrinterIni, grand);
+                
+                // PENTING: Gunakan ID unik dari database (mac_address / id) sebagai kunci Cache
+                let cacheKey = printer.mac_address || printer.id; 
+                await eksekusiWebBluetooth(cacheKey, printer.nama_perangkat, teksStruk);
             }
         }
     }
 
     // --- HELPER 1: FUNGSI MENYUSUN TEKS (KASIR VS DAPUR) ---
-    function susunTeksStruk(namaPrinter, isKasir, nota, pelanggan, namaBiaya, nominalBiaya, nominalPpn, metode, bayar, kembali, items, grand) {
-        const MAX_W = 32; // Standar 58mm
+    function susunTeksStruk(namaToko, namaPrinter, isKasir, nota, pelanggan, namaBiaya, nominalBiaya, nominalPpn, metode, bayar, kembali, items, grand) {
+        const MAX_W = 32; // Standar kertas 58mm
         function c(t) { return " ".repeat(Math.max(0, Math.floor((MAX_W - t.length) / 2))) + t; }
         function lr(l, r) { let s = MAX_W - (l.length + r.length); return l + " ".repeat(s < 1 ? 1 : s) + r; }
 
@@ -1082,7 +1088,7 @@ window.resetPencarianDanKatalog = async function() {
         // HEADER
         if (isKasir) {
             text += c("NOTA TRANSAKSI") + "\n";
-            text += c("POS SYSTEM STORE") + "\n"; // Bisa diganti dinamis
+            text += c(namaToko.toUpperCase()) + "\n";
         } else {
             text += c(`[ TIKET DAPUR ]`) + "\n";
             text += c(namaPrinter.toUpperCase()) + "\n";
@@ -1097,20 +1103,18 @@ window.resetPencarianDanKatalog = async function() {
         // DAFTAR ITEM
         items.forEach(i => {
             if (isKasir) {
-                // Tampilan Kasir (Ada Harga)
                 let hargaSat = i.qty > 0 ? (i.subtotal_item || i.subtotal) / i.qty : 0;
                 let subVal = "Rp" + Number(i.subtotal_item || i.subtotal).toLocaleString('id-ID');
                 text += i.nama_barang + "\n";
                 text += lr(`  ${i.qty}x @${hargaSat.toLocaleString('id-ID')}`, subVal) + "\n";
             } else {
-                // Tampilan Dapur (Hanya Qty & Nama Barang Besar-Besar)
                 text += `[ ] ${i.qty}x ${i.nama_barang.toUpperCase()}\n\n`;
             }
         });
 
         text += "-".repeat(MAX_W) + "\n";
 
-        // FOOTER (Dapur tidak butuh total harga)
+        // FOOTER
         if (isKasir) {
             if (nominalBiaya > 0) text += lr((namaBiaya || 'Biaya'), "Rp" + Number(nominalBiaya).toLocaleString('id-ID')) + "\n";
             if (nominalPpn > 0) text += lr("PPN", "Rp" + Number(nominalPpn).toLocaleString('id-ID')) + "\n";
@@ -1132,24 +1136,53 @@ window.resetPencarianDanKatalog = async function() {
             text += c("--- SELESAI ---") + "\n";
         }
         
-        text += "\n\n\n"; // Jarak potong kertas
+        text += "\n\n\n"; 
         return text;
     }
 
-    // --- HELPER 2: EKSEKUSI PENGIRIMAN DATA KE PRINTER ---
-    async function eksekusiWebBluetooth(namaPrinter, teksStruk) {
+    // --- HELPER 2: EKSEKUSI PENGIRIMAN DATA KE PRINTER (ANTI ERROR & AUTO CACHE) ---
+    async function eksekusiWebBluetooth(cacheKey, namaPrinter, teksStruk) {
         try {
-            // Beri tahu user printer mana yang harus dihubungkan
-            alert(`Sistem bersiap mencetak ke: [ ${namaPrinter} ].\n\nSilakan pilih printer tersebut di jendela yang akan muncul.`);
-            
-            const device = await navigator.bluetooth.requestDevice({
-                acceptAllDevices: true,
-                optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb'] // UUID Standar Printer Thermal
-            });
+            let device = window.printerCache[cacheKey];
+            let server;
 
-            const server = await device.gatt.connect();
-            const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-            const characteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
+            // CEK CACHE: Jika belum ada di memori atau koneksi terputus, munculkan pop-up
+            if (!device || !device.gatt.connected) {
+                alert(`OTORISASI BLUETOOTH\n\nSistem akan menghubungkan ke: [ ${namaPrinter} ].\nSilakan pilih printer Anda di daftar yang muncul.`);
+                
+                device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [
+                        '000018f0-0000-1000-8000-00805f9b34fb', // UUID Standar (China)
+                        '49535343-fe7d-4ae5-8fa9-9fafd205e455', // UUID BP-TD110BT dll
+                        'e7810a71-73ae-499d-8c15-faa9aef0c3f2', 
+                        '000018ee-0000-1000-8000-00805f9b34fb'
+                    ]
+                });
+
+                server = await device.gatt.connect();
+                window.printerCache[cacheKey] = device; // Simpan ke memori agar transaksi berikutnya instan!
+            } else {
+                // JIKA SUDAH DI CACHE: Langsung tembak (tanpa pop-up)
+                server = await device.gatt.connect();
+            }
+
+            // AUTO DETECT CHANNEL: Cari saluran pengiriman (Characteristic) yang bisa ditulis
+            const services = await server.getPrimaryServices();
+            let targetCharacteristic = null;
+
+            for (let service of services) {
+                const characteristics = await service.getCharacteristics();
+                for (let char of characteristics) {
+                    if (char.properties.write || char.properties.writeWithoutResponse) {
+                        targetCharacteristic = char;
+                        break;
+                    }
+                }
+                if (targetCharacteristic) break;
+            }
+
+            if (!targetCharacteristic) throw new Error("Saluran penulisan (Write) tidak ditemukan di printer ini.");
 
             const encoder = new TextEncoder();
             // \x1B\x40 = Reset Printer | \x1D\x56\x41\x10 = Potong Kertas (Cut)
@@ -1157,20 +1190,22 @@ window.resetPencarianDanKatalog = async function() {
 
             // Kirim data ke printer (dipecah agar tidak error jika struk sangat panjang)
             for (let i = 0; i < data.length; i += 512) {
-                await characteristic.writeValue(data.slice(i, i + 512));
+                await targetCharacteristic.writeValue(data.slice(i, i + 512));
             }
             
-            // Putuskan koneksi agar printer siap menerima perintah dari kasir lain
-            device.gatt.disconnect();
+            // PENTING: Kita sengaja TIDAK MEMUTUS (disconnect) koneksi di sini.
+            // Biarkan menyambung terus agar cetakan berikutnya tidak minta izin.
             showToast(`✅ Berhasil mencetak di ${namaPrinter}`);
             
         } catch (err) {
-            console.error(err);
+            console.error("Print Error:", err);
             if (err.message.includes('User cancelled')) {
-                showToast(`Pencetakan ke ${namaPrinter} dilewati.`, 'error');
+                showToast(`Pencetakan ke ${namaPrinter} dibatalkan oleh pengguna.`, 'error');
             } else {
                 showToast(`Gagal mencetak di ${namaPrinter}: ` + err.message, 'error');
             }
+            // Jika error parah, hapus cache agar pengguna dipaksa menyambung ulang dari awal
+            delete window.printerCache[cacheKey];
         }
     }
 
