@@ -1025,95 +1025,154 @@ window.resetPencarianDanKatalog = async function() {
         }
     }
 
+// ===================================================================
+    // LOGIKA MULTI-PRINTER (KASIR & DAPUR) VIA WEB BLUETOOTH
+    // ===================================================================
+    
     window.cetakStrukThermal = async function(nota, pelanggan, namaBiaya, nominalBiaya, nominalPpn, metode, bayar, kembali, items, grand) {
-    const storeId = await getActiveStoreId();
-    let namaToko = "POS SYSTEM STORE";
-    let alamatToko = "";
-    let telpToko = "-";
+        const storeId = await getActiveStoreId();
 
-    if (storeId && storeId !== 'ALL_ADMIN') {
-        const { data: storeData } = await supabase.from('stores').select('*').eq('id', storeId).maybeSingle();
-        if (storeData) {
-            namaToko = storeData.nama_toko || namaToko;
-            alamatToko = storeData.alamat || '';
-            telpToko = storeData.telepon || '-';
+        // 1. Ambil daftar printer yang aktif di toko ini
+        const { data: printers, error } = await supabase
+            .from('devices')
+            .select('*')
+            .eq('store_id', storeId)
+            .eq('status', 'Aktif');
+
+        if (error || !printers || printers.length === 0) {
+            showToast('Tidak ada printer aktif. Silakan atur di Manajemen Perangkat.', 'error');
+            return;
+        }
+
+        // 2. Loop setiap printer dan filter barangnya
+        for (let printer of printers) {
+            // Cek apakah printer ini diset untuk "Semua/Kasir Utama"
+            const isKasir = printer.kategori_ids && printer.kategori_ids.includes('SEMUA');
+
+            // Saring item belanjaan: Apakah masuk ke kategori printer ini?
+            let itemsUntukPrinterIni = items.filter(i => {
+                if (isKasir) return true; // Kasir mencetak semua barang
+                
+                // Cari id_kategori dari barang ini melalui cache produk
+                const prod = listProdukCache.find(p => p.sku_id === i.sku_id);
+                const idKat = prod ? prod.id_kategori : null;
+
+                // Jika ID Kategori barang ada di dalam daftar kategori printer ini, setujui!
+                if (idKat && printer.kategori_ids.includes(idKat)) return true;
+                
+                return false;
+            });
+
+            // 3. Jika ada barang yang harus dicetak di printer ini, kirim ke Bluetooth!
+            if (itemsUntukPrinterIni.length > 0) {
+                let teksStruk = susunTeksStruk(printer.nama_perangkat, isKasir, nota, pelanggan, namaBiaya, nominalBiaya, nominalPpn, metode, bayar, kembali, itemsUntukPrinterIni, grand);
+                await eksekusiWebBluetooth(printer.nama_perangkat, teksStruk);
+            }
         }
     }
 
-    const MAX_W = 32; // Lebar maksimal karakter untuk kertas thermal 58mm
+    // --- HELPER 1: FUNGSI MENYUSUN TEKS (KASIR VS DAPUR) ---
+    function susunTeksStruk(namaPrinter, isKasir, nota, pelanggan, namaBiaya, nominalBiaya, nominalPpn, metode, bayar, kembali, items, grand) {
+        const MAX_W = 32; // Standar 58mm
+        function c(t) { return " ".repeat(Math.max(0, Math.floor((MAX_W - t.length) / 2))) + t; }
+        function lr(l, r) { let s = MAX_W - (l.length + r.length); return l + " ".repeat(s < 1 ? 1 : s) + r; }
 
-    // Fungsi bantu untuk meratakan teks ke tengah
-    function centerText(text) {
-        if (!text) return "";
-        let pad = Math.max(0, Math.floor((MAX_W - text.length) / 2));
-        return " ".repeat(pad) + text;
-    }
-
-    // Fungsi bantu untuk membuat format Kiri dan Kanan dalam satu baris
-    function printLeftRight(left, right) {
-        let space = MAX_W - (left.length + right.length);
-        if (space < 1) space = 1;
-        return left + " ".repeat(space) + right;
-    }
-
-    let strukText = "";
-    
-    // Header Toko
-    strukText += centerText(namaToko.toUpperCase()) + "\n";
-    if (alamatToko) strukText += centerText(alamatToko) + "\n";
-    if (telpToko && telpToko !== "-") strukText += centerText("Telp: " + telpToko) + "\n";
-    strukText += "-".repeat(MAX_W) + "\n";
-    
-    // Informasi Transaksi
-    strukText += "Nota : " + nota + "\n";
-    strukText += "Waktu: " + new Date().toLocaleString('id-ID') + "\n";
-    strukText += "Kasir: " + (localStorage.getItem('user_nama') || 'Admin') + "\n";
-    strukText += "Plgn : " + (pelanggan || '-') + "\n";
-    strukText += "-".repeat(MAX_W) + "\n";
-
-    // Looping Item Transaksi
-    items.forEach(i => {
-        let hargaSat = i.qty > 0 ? (i.subtotal_item || i.subtotal) / i.qty : 0;
-        let subTotalVal = "Rp " + Number(i.subtotal_item || i.subtotal).toLocaleString('id-ID');
-        let detailQty = i.qty + "x @Rp " + hargaSat.toLocaleString('id-ID');
+        let text = "";
         
-        strukText += i.nama_barang + "\n";
-        strukText += printLeftRight("  " + detailQty, subTotalVal) + "\n";
-    });
+        // HEADER
+        if (isKasir) {
+            text += c("NOTA TRANSAKSI") + "\n";
+            text += c("POS SYSTEM STORE") + "\n"; // Bisa diganti dinamis
+        } else {
+            text += c(`[ TIKET DAPUR ]`) + "\n";
+            text += c(namaPrinter.toUpperCase()) + "\n";
+        }
+        
+        text += "-".repeat(MAX_W) + "\n";
+        text += "Nota : " + nota + "\n";
+        text += "Waktu: " + new Date().toLocaleString('id-ID') + "\n";
+        text += "Plgn : " + (pelanggan || '-') + "\n";
+        text += "-".repeat(MAX_W) + "\n";
 
-    strukText += "-".repeat(MAX_W) + "\n";
+        // DAFTAR ITEM
+        items.forEach(i => {
+            if (isKasir) {
+                // Tampilan Kasir (Ada Harga)
+                let hargaSat = i.qty > 0 ? (i.subtotal_item || i.subtotal) / i.qty : 0;
+                let subVal = "Rp" + Number(i.subtotal_item || i.subtotal).toLocaleString('id-ID');
+                text += i.nama_barang + "\n";
+                text += lr(`  ${i.qty}x @${hargaSat.toLocaleString('id-ID')}`, subVal) + "\n";
+            } else {
+                // Tampilan Dapur (Hanya Qty & Nama Barang Besar-Besar)
+                text += `[ ] ${i.qty}x ${i.nama_barang.toUpperCase()}\n\n`;
+            }
+        });
 
-    // Biaya Tambahan & PPN
-    if (nominalBiaya > 0) {
-        let labelB = (namaBiaya || 'Biaya Lain');
-        strukText += printLeftRight(labelB, "Rp " + Number(nominalBiaya).toLocaleString('id-ID')) + "\n";
+        text += "-".repeat(MAX_W) + "\n";
+
+        // FOOTER (Dapur tidak butuh total harga)
+        if (isKasir) {
+            if (nominalBiaya > 0) text += lr((namaBiaya || 'Biaya'), "Rp" + Number(nominalBiaya).toLocaleString('id-ID')) + "\n";
+            if (nominalPpn > 0) text += lr("PPN", "Rp" + Number(nominalPpn).toLocaleString('id-ID')) + "\n";
+            
+            text += lr("TOTAL", "Rp" + Number(grand).toLocaleString('id-ID')) + "\n";
+            text += lr("Metode", metode || 'Tunai') + "\n";
+            text += lr("Bayar", "Rp" + Number(bayar).toLocaleString('id-ID')) + "\n";
+            
+            let selisih = Number(bayar) - Number(grand);
+            if (metode !== 'Tunai' && metode !== 'Cash' && selisih > 0) {
+                text += lr("Refund", "Rp" + selisih.toLocaleString('id-ID')) + "\n";
+            } else {
+                text += lr("Kembali", "Rp" + Number(kembali).toLocaleString('id-ID')) + "\n";
+            }
+            
+            text += "-".repeat(MAX_W) + "\n";
+            text += c("Terima Kasih") + "\n";
+        } else {
+            text += c("--- SELESAI ---") + "\n";
+        }
+        
+        text += "\n\n\n"; // Jarak potong kertas
+        return text;
     }
-    if (nominalPpn > 0) {
-        strukText += printLeftRight("PPN", "Rp " + Number(nominalPpn).toLocaleString('id-ID')) + "\n";
+
+    // --- HELPER 2: EKSEKUSI PENGIRIMAN DATA KE PRINTER ---
+    async function eksekusiWebBluetooth(namaPrinter, teksStruk) {
+        try {
+            // Beri tahu user printer mana yang harus dihubungkan
+            alert(`Sistem bersiap mencetak ke: [ ${namaPrinter} ].\n\nSilakan pilih printer tersebut di jendela yang akan muncul.`);
+            
+            const device = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb'] // UUID Standar Printer Thermal
+            });
+
+            const server = await device.gatt.connect();
+            const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+            const characteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
+
+            const encoder = new TextEncoder();
+            // \x1B\x40 = Reset Printer | \x1D\x56\x41\x10 = Potong Kertas (Cut)
+            const data = encoder.encode("\x1B\x40" + teksStruk + "\x1D\x56\x41\x10"); 
+
+            // Kirim data ke printer (dipecah agar tidak error jika struk sangat panjang)
+            for (let i = 0; i < data.length; i += 512) {
+                await characteristic.writeValue(data.slice(i, i + 512));
+            }
+            
+            // Putuskan koneksi agar printer siap menerima perintah dari kasir lain
+            device.gatt.disconnect();
+            showToast(`✅ Berhasil mencetak di ${namaPrinter}`);
+            
+        } catch (err) {
+            console.error(err);
+            if (err.message.includes('User cancelled')) {
+                showToast(`Pencetakan ke ${namaPrinter} dilewati.`, 'error');
+            } else {
+                showToast(`Gagal mencetak di ${namaPrinter}: ` + err.message, 'error');
+            }
+        }
     }
-
-    // Total & Pembayaran
-    strukText += printLeftRight("GRAND TOTAL", "Rp " + Number(grand).toLocaleString('id-ID')) + "\n";
-    strukText += printLeftRight("Metode", (metode || 'Tunai')) + "\n";
-    strukText += printLeftRight("Bayar", "Rp " + Number(bayar).toLocaleString('id-ID')) + "\n";
-
-    // Logika Refund / Kembalian
-    let selisih = Number(bayar) - Number(grand);
-    if (metode && metode.toLowerCase() !== 'tunai' && metode.toLowerCase() !== 'cash' && selisih > 0) {
-        strukText += printLeftRight("Dana Refund", "Rp " + selisih.toLocaleString('id-ID')) + "\n";
-    } else {
-        strukText += printLeftRight("Kembali", "Rp " + Number(kembali).toLocaleString('id-ID')) + "\n";
-    }
-
-    strukText += "-".repeat(MAX_W) + "\n";
-    strukText += centerText("Terima Kasih Atas") + "\n";
-    strukText += centerText("Kunjungan Anda") + "\n";
-    strukText += "\n\n"; // Jarak agar kertas mudah dirobek
-
-    // Kirim ke RawBT
-    let rawbtIntentUrl = "intent:" + encodeURIComponent(strukText) + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
-    window.location.href = rawbtIntentUrl;
-}
 
     initKasir();
 </script>

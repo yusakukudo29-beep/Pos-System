@@ -137,7 +137,8 @@ export async function renderLayout() {
     let isFullAdmin = userRole.includes('super_admin') || userRole.includes('admin_client') || userRole.includes('admin') || userRole.includes('owner');
 
     if (isFullAdmin) {
-        userPermissions = ['dashboard', 'penjualan', 'barang', 'kategori', 'report', 'users', 'userrole', 'metode', 'store'];
+        // ✅ TAMBAHAN UNTUK DEVICES: Menambahkan 'devices' ke daftar izin Admin
+        userPermissions = ['dashboard', 'penjualan', 'barang', 'kategori', 'report', 'users', 'userrole', 'metode', 'store', 'devices'];
     } else if (userEmail) {
         try {
             const { data: profile } = await supabase.from('users_profile').select('role').eq('email', userEmail).maybeSingle();
@@ -187,7 +188,8 @@ export async function renderLayout() {
         "users.html": ['user', 'manajemenuser']
     };
 
-    const adminOnlyPages = ['userrole', 'userrole.html', 'metode_pembayaran', 'metode_pembayaran.html', 'store', 'store.html', 'admin_stores', 'admin_stores.html'];
+    // ✅ TAMBAHAN UNTUK DEVICES: Mendaftarkan devices ke halaman khusus Admin
+    const adminOnlyPages = ['userrole', 'userrole.html', 'metode_pembayaran', 'metode_pembayaran.html', 'store', 'store.html', 'admin_stores', 'admin_stores.html', 'devices', 'devices.html'];
 
     if (adminOnlyPages.includes(currentPathGuard)) {
         hasAccess = isFullAdmin;
@@ -274,9 +276,11 @@ export async function renderLayout() {
         }
 
         if (isFullAdmin) {
+            // ✅ TAMBAHAN UNTUK DEVICES: Menambahkan link Manajemen Perangkat
             linksHTML += `
                 <li><a href="userrole.html" id="nav-userrole">🔐 Role & Hak Akses</a></li>
                 <li><a href="metode_pembayaran.html" id="nav-metode">💳 Metode Pembayaran</a></li>
+                <li><a href="devices.html" id="nav-devices">📱 Manajemen Perangkat</a></li>
                 <li><a href="store.html" id="nav-store">🏢 Pengaturan Toko</a></li>
             `;
         }
@@ -338,6 +342,8 @@ export async function renderLayout() {
         if(currentPath.includes("kategori")) pageTitle = "Kategori";
         if(currentPath.includes("report")) pageTitle = "Laporan Penjualan";
         if(currentPath.includes("user")) pageTitle = "Manajemen Pengguna";
+        // ✅ TAMBAHAN UNTUK DEVICES: Menambahkan judul dinamis untuk header
+        if(currentPath.includes("devices")) pageTitle = "Manajemen Perangkat";
 
         const headerHTML = `
         <header id="app-header">

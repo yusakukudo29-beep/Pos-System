@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manajemen Perangkat - POS SaaS</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .content-body { padding: 24px; box-sizing: border-box; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.05); margin-bottom: 24px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; text-align: left; font-size: 0.95rem; }
+        th { background-color: var(--bg-main); color: var(--text-muted); padding: 12px 14px; font-weight: 600; border-bottom: 2px solid var(--border); text-transform: uppercase; font-size: 0.85rem;}
+        td { padding: 14px; border-bottom: 1px solid var(--border); color: var(--text-main); vertical-align: middle; }
+        tr:hover td { background-color: rgba(0, 0, 0, 0.02); }
+
+        .form-label { display: block; font-size: 0.85rem; margin-bottom: 8px; color: var(--text-muted); font-weight: 600; }
+        .form-input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-main); color: var(--text-main); font-size: 0.95rem; box-sizing: border-box; transition: border-color 0.2s; }
+        .form-input:focus { outline: none; border-color: var(--primary); }
+        .form-input[readonly] { background-color: #f1f5f9; color: #64748b; cursor: not-allowed; border-color: #e2e8f0; }
+
+        .btn-submit { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; font-size: 0.95rem; transition: background-color 0.2s;}
+        .btn-submit:hover { background: var(--primary-hover); }
+        
+        .btn-scan { background: #2563eb; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; transition: background-color 0.2s;}
+        .btn-scan:hover { background: #1d4ed8; }
+
+        /* Checkbox Kategori Grid */
+        .kategori-checkbox-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 8px; background: var(--bg-main); padding: 16px; border-radius: 8px; border: 1px solid var(--border); max-height: 250px; overflow-y: auto; }
+        .checkbox-item { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; cursor: pointer; color: var(--text-main); }
+        .checkbox-item input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
+
+        /* Full Screen Loader */
+        #page-loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-main); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--text-main); font-weight: bold; font-size: 1.2rem; }
+
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: var(--surface); color: var(--text-main); border: 1px solid var(--border); padding: 14px 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); font-size: 0.95rem; display: flex; align-items: center; gap: 12px; min-width: 250px; animation: slideIn 0.3s ease; }
+        .toast.success { border-left: 4px solid #10b981; }
+        .toast.error { border-left: 4px solid #ef4444; }
+        
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* Dukungan Dark Mode */
+        [data-theme="dark"] .form-input[readonly] { background-color: #0f172a; border-color: #334155; color: #94a3b8; }
+    </style>
+</head>
+<body>
+    <!-- Layar Loading Cek Akses -->
+    <div id="page-loader">
+        <div style="width: 40px; height: 40px; border: 4px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px;"></div>
+        <p>Memeriksa Hak Akses...</p>
+        <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+    </div>
+
+    <main style="display: none;" id="main-content">
+        <header style="padding: 20px 24px 0 24px; background: transparent; border: none;">
+            <h1 style="font-size: 1.5rem; color: var(--text-main); font-weight: 700;">Manajemen Perangkat Printer</h1>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">Kelola printer kasir dan printer dapur berdasarkan kategori barang.</p>
+        </header>
+        
+        <div class="content-body">
+            
+            <!-- Form Tambah Printer -->
+            <div class="card">
+                <h2 style="font-size: 1.1rem; margin-bottom: 16px;">➕ Daftarkan Printer Baru</h2>
+                <form onsubmit="event.preventDefault(); simpanPerangkat();">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+                        
+                        <!-- Bagian Kiri: Scan Bluetooth -->
+                        <div style="background: var(--bg-main); padding: 20px; border-radius: 12px; border: 1px dashed var(--border);">
+                            <button type="button" class="btn-scan" onclick="scanBluetooth()">
+                                <span style="font-size: 1.2rem;">🔍</span> Cari & Hubungkan Printer Bluetooth
+                            </button>
+                            
+                            <div style="margin-top: 20px; margin-bottom: 16px;">
+                                <label class="form-label">Nama Printer (Otomatis Tertangkap)</label>
+                                <input type="text" id="dev-nama" class="form-input" required placeholder="Silakan klik tombol Cari di atas..." readonly>
+                            </div>
+                            <div>
+                                <label class="form-label">ID Perangkat / Web Bluetooth ID</label>
+                                <input type="text" id="dev-mac" class="form-input" required placeholder="Akan terisi otomatis" readonly>
+                            </div>
+                        </div>
+
+                        <!-- Bagian Kanan: Pilih Kategori -->
+                        <div>
+                            <label class="form-label">Tentukan Kategori Cetak Printer Ini:</label>
+                            <div class="kategori-checkbox-grid" id="kategori-checkbox-container">
+                                <span style="color: var(--text-muted); font-size: 0.85rem;">Memuat kategori toko...</span>
+                            </div>
+                            <small style="color: var(--text-muted); font-size: 0.8rem; display: block; margin-top: 10px; line-height: 1.4;">
+                                💡 <strong>Tips:</strong> Centang "Pilih Semua Kategori" jika printer ini berada di meja kasir. Centang kategori tertentu (Misal: Minuman/Dessert) jika printer ini diletakkan di Bar atau Dapur.
+                            </small>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 24px;">
+                        <button type="submit" class="btn-submit">💾 Simpan Konfigurasi Printer</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tabel Daftar Printer -->
+            <div class="card">
+                <h2 style="font-size: 1.1rem; margin-bottom: 16px;">🖨️ Daftar Printer di Toko Ini</h2>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nama Printer</th>
+                                <th>Target Kategori</th>
+                                <th>ID Perangkat (Bluetooth)</th>
+                                <th style="text-align: center;">Status</th>
+                                <th style="text-align: center; width: 120px;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabel-device">
+                            <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">Memuat data perangkat...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="toast-container"></div>
+
+    <script type="module">
+        import { supabase, getActiveStoreId, renderLayout } from './App.js';
+
+        let mapKategori = {};
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span style="font-size: 1.2rem;">${type === 'success' ? '✅' : '⚠️'}</span> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        // ==========================================
+        // FITUR CHECKBOX PILIH SEMUA
+        // ==========================================
+        window.toggleSemuaKategori = function() {
+            const checkSemua = document.getElementById('check-semua');
+            const checkboxes = document.querySelectorAll('input[name="kategori_printer"]:not([value="SEMUA"])');
+            
+            checkboxes.forEach(cb => {
+                cb.checked = checkSemua.checked;
+            });
+        };
+
+        window.cekKategoriIndividual = function() {
+            const checkSemua = document.getElementById('check-semua');
+            const checkboxes = document.querySelectorAll('input[name="kategori_printer"]:not([value="SEMUA"])');
+            
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkSemua.checked = allChecked;
+        };
+
+        // ==========================================
+        // 1. CEK HAK AKSES
+        // ==========================================
+        async function inisialisasiHalaman() {
+            const storeId = await getActiveStoreId();
+            const userEmail = (localStorage.getItem('user_email') || '').toLowerCase();
+
+            if (!storeId || !userEmail) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            const { data: userProfile } = await supabase
+                .from('users_profile')
+                .select('role, is_admin')
+                .eq('store_id', storeId)
+                .eq('email', userEmail)
+                .maybeSingle();
+
+            if (!userProfile) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            const role = (userProfile.role || '').toLowerCase();
+            const isOwner = role === 'admin_client' || role === 'owner';
+            const isAdmin = userProfile.is_admin === true;
+
+            if (!isOwner && !isAdmin) {
+                alert("Akses Ditolak! Halaman ini khusus untuk Administrator/Owner.");
+                window.location.href = 'dashboard.html'; 
+                return;
+            }
+
+            renderLayout();
+            document.getElementById('page-loader').style.display = 'none';
+            document.getElementById('main-content').style.display = 'block';
+
+            loadKategoriCheckboxes(storeId);
+        }
+
+        // ==========================================
+        // 2. PEMINDAIAN BLUETOOTH
+        // ==========================================
+        window.scanBluetooth = async function() {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb'] 
+                });
+
+                document.getElementById('dev-nama').value = device.name || 'Printer Kasir/Dapur';
+                document.getElementById('dev-mac').value = device.id; 
+                
+                showToast('Perangkat "' + (device.name || 'Printer') + '" berhasil ditangkap!', 'success');
+                
+            } catch (error) {
+                console.error("Bluetooth Scan Error:", error);
+                if (error.message.includes('User cancelled')) {
+                    showToast('Pemindaian dibatalkan oleh pengguna.', 'error');
+                } else if (error.message.includes('not supported') || error.message.includes('Bluetooth adapter not available')) {
+                    showToast('Pastikan Bluetooth Anda menyala dan Anda menggunakan Google Chrome.', 'error');
+                } else {
+                    showToast('Gagal memindai: ' + error.message, 'error');
+                }
+            }
+        }
+
+        // ==========================================
+        // 3. MUAT KATEGORI
+        // ==========================================
+        async function loadKategoriCheckboxes(storeId) {
+            const container = document.getElementById('kategori-checkbox-container');
+            
+            // MENGGUNAKAN TABEL 'categories'
+            const { data: kategori, error } = await supabase
+                .from('categories')
+                .select('*')
+                .eq('store_id', storeId);
+
+            if (error) console.error("Gagal memuat categories:", error);
+
+            let html = `
+                <label class="checkbox-item" style="grid-column: 1 / -1; background: rgba(79, 70, 229, 0.1); padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(79, 70, 229, 0.3); margin-bottom: 8px;">
+                    <input type="checkbox" name="kategori_printer" value="SEMUA" id="check-semua" onchange="toggleSemuaKategori()"> 
+                    <strong style="color: var(--primary);">🌟 Pilih Semua Kategori (Kasir Utama)</strong>
+                </label>
+            `;
+
+            if (kategori && kategori.length > 0) {
+                kategori.forEach(kat => {
+                    const namaKat = kat.nama_kategori || kat.name || kat.nama || 'Kategori Tanpa Nama';
+                    mapKategori[kat.id] = namaKat;
+                    
+                    html += `
+                        <label class="checkbox-item" style="padding: 6px 0;">
+                            <input type="checkbox" name="kategori_printer" value="${kat.id}" onchange="cekKategoriIndividual()"> 
+                            ${namaKat}
+                        </label>
+                    `;
+                });
+            } else {
+                html += `<div style="grid-column: 1 / -1; color: #ef4444; font-size: 0.85rem; padding-top: 10px;">Belum ada Kategori Barang. Buat kategori terlebih dahulu di menu Kategori.</div>`;
+            }
+
+            container.innerHTML = html;
+            loadDevices(storeId);
+        }
+
+        // ==========================================
+        // 4. MUAT DAFTAR PERANGKAT
+        // ==========================================
+        async function loadDevices(storeId) {
+            const tbody = document.getElementById('tabel-device');
+
+            const { data, error } = await supabase
+                .from('devices')
+                .select('*')
+                .eq('store_id', storeId)
+                .order('created_at', { ascending: false });
+
+            if (error || !data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">Belum ada printer yang didaftarkan.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            data.forEach(dev => {
+                let katBadge = '';
+                if (dev.kategori_ids && dev.kategori_ids.includes('SEMUA')) {
+                    katBadge = `<span style="background:var(--primary); color:white; padding:4px 10px; border-radius:20px; font-size:0.75rem; font-weight:bold;">🌟 Semua (Kasir)</span>`;
+                } else if (dev.kategori_ids && dev.kategori_ids.length > 0) {
+                    const namaKatList = dev.kategori_ids.map(id => mapKategori[id] || 'Terhapus').join(', ');
+                    katBadge = `<span style="background:var(--border); color:var(--text-main); padding:4px 10px; border-radius:20px; font-size:0.8rem; display:inline-block; line-height:1.5;">${namaKatList}</span>`;
+                } else {
+                    katBadge = `<span style="color:#ef4444; font-size:0.8rem;">Belum diset</span>`;
+                }
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <strong style="font-size: 1.05rem;">${dev.nama_perangkat}</strong><br>
+                            <small style="color:var(--text-muted)">Printer Bluetooth</small>
+                        </td>
+                        <td>${katBadge}</td>
+                        <td><code style="background: var(--bg-main); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); font-size: 0.8rem;">${dev.mac_address || '-'}</code></td>
+                        <td style="text-align: center;">
+                            <span style="color: #10b981; font-weight: 700; background: rgba(16, 185, 129, 0.1); padding: 6px 12px; border-radius: 8px; font-size: 0.8rem;">${dev.status}</span>
+                        </td>
+                        <td style="text-align: center;">
+                            <button style="background:#ef4444; color:white; border:none; padding: 6px 12px; font-size:0.85rem; border-radius: 6px; cursor: pointer; font-weight: 600;" onclick="hapusDevice('${dev.id}')">Hapus</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // ==========================================
+        // 5. SIMPAN PRINTER
+        // ==========================================
+        window.simpanPerangkat = async function() {
+            const storeId = await getActiveStoreId();
+            if (!storeId) return;
+
+            const nama = document.getElementById('dev-nama').value.trim();
+            const mac = document.getElementById('dev-mac').value.trim();
+            
+            if (!nama || !mac) {
+                showToast('Anda harus mencari dan menghubungkan printer Bluetooth terlebih dahulu!', 'error');
+                return;
+            }
+
+            const checkedCategories = Array.from(document.querySelectorAll('input[name="kategori_printer"]:checked'))
+                                         .map(el => el.value);
+
+            if (checkedCategories.length === 0) {
+                showToast('Pilih minimal 1 kategori untuk printer ini!', 'error');
+                return;
+            }
+
+            const btnSubmit = document.querySelector('.btn-submit');
+            btnSubmit.innerHTML = 'Menyimpan...';
+            btnSubmit.disabled = true;
+
+            const { error } = await supabase.from('devices').insert([{
+                store_id: storeId,
+                nama_perangkat: nama,
+                jenis_perangkat: 'Printer Bluetooth',
+                mac_address: mac,
+                kategori_ids: checkedCategories,
+                status: 'Aktif'
+            }]);
+
+            if (error) {
+                showToast('Gagal menyimpan: ' + error.message, 'error');
+            } else {
+                showToast('Printer berhasil didaftarkan!', 'success');
+                document.getElementById('dev-nama').value = '';
+                document.getElementById('dev-mac').value = '';
+                document.querySelectorAll('input[name="kategori_printer"]').forEach(el => el.checked = false);
+                loadDevices(storeId);
+            }
+
+            btnSubmit.innerHTML = '💾 Simpan Konfigurasi Printer';
+            btnSubmit.disabled = false;
+        }
+
+        // ==========================================
+        // 6. HAPUS PRINTER
+        // ==========================================
+        window.hapusDevice = async function(id) {
+            if (!confirm('Apakah Anda yakin ingin menghapus printer ini?')) return;
+            
+            const storeId = await getActiveStoreId();
+            const { error } = await supabase.from('devices').delete().eq('id', id).eq('store_id', storeId);
+            
+            if (error) {
+                showToast('Gagal menghapus printer.', 'error');
+            } else {
+                showToast('Printer berhasil dihapus.', 'success');
+                loadDevices(storeId);
+            }
+        }
+
+        inisialisasiHalaman();
+    </script>
+</body>
+</html>
